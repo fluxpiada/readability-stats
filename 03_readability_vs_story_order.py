@@ -1,143 +1,49 @@
-#4. Pacing Curve (Readability vs Story Order)
-#You already compute Flesch/FK/Fog.
-#Now put them in a DataFrame and plot them.
-import os
-import re
-from pathlib import Path
+"""
+03_readability_vs_story_order.py — plot Flesch score across chapter order (pacing curve).
+Usage: python 03_readability_vs_story_order.py [folder]
+"""
 
-cache_dir = (Path(__file__).parent / ".matplotlib_cache").resolve()
-cache_dir.mkdir(exist_ok=True)
-os.environ.setdefault("MPLCONFIGDIR", str(cache_dir))
-
+import sys
 import matplotlib
 matplotlib.use("Agg")
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
 import pandas as pd
+from pathlib import Path
+from utils import load_chapters, readability_metrics  # also sets MPLCONFIGDIR
 
-# -------------------------------
-# Markdown → plain text stripper
-# -------------------------------
-def strip_markdown(md):
-    text = md
-
-    # Remove code blocks
-    text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
-
-    # Remove inline code
-    text = re.sub(r"`[^`]+`", "", text)
-
-    # Remove images ![alt](url)
-    text = re.sub(r"!\[.*?\]\(.*?\)", "", text)
-
-    # Remove links [text](url)
-    text = re.sub(r"\[(.*?)\]\(.*?\)", r"\1", text)
-
-    # Remove headings, lists, blockquotes markers
-    text = re.sub(r"(^|\n)[#>\-\*\+]+\s*", r"\1", text)
-
-    # Remove emphasis markers ** __ * _
-    text = re.sub(r"[*_]{1,3}", "", text)
-
-    return text
+MANUSCRIPT = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
 
 
-# -------------------------------
-# Readability helpers
-# -------------------------------
-def count_syllables(word):
-    word = word.lower()
-    word = re.sub(r'[^a-z]', '', word)
-    vowels = "aeiouy"
-    if not word:
-        return 0
-
-    syllables = 0
-    prev_vowel = False
-
-    for char in word:
-        is_vowel = char in vowels
-        if is_vowel and not prev_vowel:
-            syllables += 1
-        prev_vowel = is_vowel
-
-    # silent e
-    if word.endswith("e") and syllables > 1:
-        syllables -= 1
-
-    return max(1, syllables)
+def build_dataframe(folder: str) -> pd.DataFrame:
+    rows = []
+    for i, (filename, text) in enumerate(load_chapters(folder)):
+        m = readability_metrics(text)
+        if m:
+            rows.append({
+                "chapter":  filename,
+                "order":    i,
+                "flesch":   m["flesch"],
+                "fk":       m["fk_grade"],
+                "fog":      m["gunning_fog"],
+                "words":    m["words"],
+            })
+    return pd.DataFrame(rows)
 
 
-def readability_metrics(text):
-    words = re.findall(r"\b[\w']+\b", text)
-    word_count = len(words)
-
-    sentences = re.split(r"[.!?]+", text)
-    sentences = [s for s in sentences if s.strip()]
-    sentence_count = len(sentences)
-
-    syllable_count = sum(count_syllables(w) for w in words)
-
-    if sentence_count == 0 or word_count == 0:
-        return None
-
-    # Flesch Reading Ease
-    flesch = 206.835 - 1.015 * (word_count / sentence_count) - 84.6 * (syllable_count / word_count)
-
-    # Flesch-Kincaid Grade
-    fk_grade = 0.39 * (word_count / sentence_count) + 11.8 * (syllable_count / word_count) - 15.59
-
-    # Gunning Fog
-    complex_words = sum(1 for w in words if count_syllables(w) >= 3)
-    fog = 0.4 * ((word_count / sentence_count) + 100 * (complex_words / word_count))
-
-    return {
-        "words": word_count,
-        "sentences": sentence_count,
-        "syllables": syllable_count,
-        "flesch": flesch,
-        "fk_grade": fk_grade,
-        "gunning_fog": fog,
-    }
-
-def load_chapters(folder="/Users/flofonic/Documents/Blackout/blackout/manuscript"):
-    chapters = []
-
-    for path in sorted(Path(folder).rglob("*.md")):
-        # Skip anything in a folder named 'draft'
-        if "draft" in path.parts:
-            continue
-
-        with open(path, "r", encoding="utf-8") as f:
-            raw_markdown = f.read()
-
-        plain_text = strip_markdown(raw_markdown)
-
-        chapters.append((path.name, plain_text))
-
-    return chapters
+def plot_pacing_curve(df: pd.DataFrame, output_path: str = "pacing_curve.png") -> None:
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(df["order"], df["flesch"], marker="o", linewidth=1.5)
+    ax.axhline(60, color="gray", linestyle="--", linewidth=0.8, label="Readable threshold (60)")
+    ax.set_title("Pacing Curve (Flesch Reading Ease)")
+    ax.set_xlabel("Chapter order")
+    ax.set_ylabel("Flesch score")
+    ax.legend()
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150)
+    print(f"Saved: {Path(output_path).resolve()}")
 
 
-chapters = load_chapters()
-
-rows = []
-for i, (name, text) in enumerate(chapters):
-    m = readability_metrics(text)
-    rows.append({
-        "chapter": name,
-        "order": i,
-        "flesch": m["flesch"],
-        "fk": m["fk_grade"],
-        "fog": m["gunning_fog"],
-        "words": m["words"],
-    })
-
-df = pd.DataFrame(rows)
-
-plt.plot(df["order"], df["flesch"])
-plt.title("Pacing Curve (Flesch Reading Ease)")
-plt.xlabel("Chapter order")
-plt.ylabel("Flesch score")
-output_path = Path("pacing_curve.png")
-plt.tight_layout()
-plt.savefig(output_path)
-print(f"Saved plot to {output_path.resolve()}")
+if __name__ == "__main__":
+    folder = sys.argv[1] if len(sys.argv) > 1 else MANUSCRIPT
+    df = build_dataframe(folder)
+    plot_pacing_curve(df)

@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+venv/
+.venv/
+
+# Output files
+converted_txt/
+sentence_histograms/
+pacing_curve.png
+
+# matplotlib
+.matplotlib_cache/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
