@@ -4,7 +4,45 @@ utils.py — shared helpers for readability-stats
 
 import os
 import re
+import sys
 from pathlib import Path
+
+try:
+    import docx  # python-docx
+    DOCX_AVAILABLE = True
+except ImportError:
+    DOCX_AVAILABLE = False
+
+
+# -----------------------------------------------
+# Interactive folder prompt
+# -----------------------------------------------
+
+def resolve_folder(default: str | None = None) -> str:
+    """
+    Return the folder to analyse, in this priority order:
+      1. CLI argument (sys.argv[1]) if provided
+      2. Interactive prompt if running in a terminal
+      3. *default* if supplied and no input given
+    Raises SystemExit if nothing is available.
+    """
+    if len(sys.argv) > 1:
+        return sys.argv[1]
+
+    if sys.stdin.isatty():
+        prompt = "Folder to analyse"
+        if default:
+            prompt += f" [{default}]"
+        prompt += ": "
+        answer = input(prompt).strip()
+        if answer:
+            return answer
+
+    if default:
+        return default
+
+    print("Error: no folder specified. Pass a path as the first argument.")
+    raise SystemExit(1)
 
 
 # -----------------------------------------------
@@ -80,21 +118,52 @@ def readability_metrics(text: str) -> dict | None:
 
 
 # -----------------------------------------------
+# Word (.docx) → plain text
+# -----------------------------------------------
+
+def extract_docx(path: Path) -> str:
+    """Extract plain text from a .docx file (requires python-docx)."""
+    if not DOCX_AVAILABLE:
+        raise ImportError("python-docx is not installed. Run: pip install python-docx")
+    doc = docx.Document(str(path))
+    return "\n".join(p.text for p in doc.paragraphs)
+
+
+# -----------------------------------------------
 # Chapter loader
 # -----------------------------------------------
 
+SUPPORTED_EXTENSIONS = {".md", ".docx"}
+
 def load_chapters(folder: str) -> list[tuple[str, str]]:
     """
-    Recursively load all .md files under *folder*, skipping any path
-    that contains a component named 'draft'.
+    Recursively load all .md and .docx files under *folder*,
+    skipping any path that contains a component named 'draft'.
     Returns a sorted list of (filename, plain_text) tuples.
     """
     chapters = []
-    for path in sorted(Path(folder).rglob("*.md")):
-        if "draft" in path.parts:
+    base = Path(folder)
+
+    candidates = sorted(
+        p for p in base.rglob("*")
+        if p.suffix.lower() in SUPPORTED_EXTENSIONS and "draft" not in p.parts
+    )
+
+    for path in candidates:
+        if path.suffix.lower() == ".md":
+            raw = path.read_text(encoding="utf-8")
+            text = strip_markdown(raw)
+        elif path.suffix.lower() == ".docx":
+            try:
+                text = extract_docx(path)
+            except ImportError as e:
+                print(f"Skipping {path.name}: {e}")
+                continue
+        else:
             continue
-        raw = path.read_text(encoding="utf-8")
-        chapters.append((path.name, strip_markdown(raw)))
+
+        chapters.append((path.name, text))
+
     return chapters
 
 
