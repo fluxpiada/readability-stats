@@ -6,7 +6,7 @@ Usage: python 07_tightening.py [folder]
 
 import sys
 import pandas as pd
-from read_stats import load_chapters, readability_metrics
+from read_stats import load_chapters, readability_metrics, tightening_score
 
 MANUSCRIPT = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
 
@@ -30,12 +30,7 @@ def build_dataframe(folder: str) -> pd.DataFrame:
 def main(folder: str = MANUSCRIPT) -> None:
     df = build_dataframe(folder)
 
-    df["tightening_score"] = (
-        df["fog"] * 0.5
-        + df["fk"] * 0.3
-        + df["words"] * 0.0005
-        + (df["flesch"].max() - df["flesch"]) * 0.3
-    )
+    df["tightening_score"] = tightening_score(df)
 
     result = df.sort_values("tightening_score", ascending=False)[
         ["chapter", "tightening_score", "flesch", "fog", "fk", "words"]

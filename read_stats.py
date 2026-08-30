@@ -168,8 +168,115 @@ def load_chapters(folder: str) -> list[tuple[str, str]]:
 
 
 # -----------------------------------------------
+# Lexical diversity (TTR, MTLD)
+# -----------------------------------------------
+#
+# nltk is imported lazily: only scripts that actually measure lexical
+# diversity should pay for the import and the corpus download.
+
+_NLTK_READY: bool | None = None
+
+
+def ensure_nltk_data() -> bool:
+    """
+    Download the punkt/stopwords corpora once per process.
+    Returns False if they are unavailable (offline, or no writable cache),
+    so callers can degrade instead of crashing.
+    """
+    global _NLTK_READY
+    if _NLTK_READY is None:
+        try:
+            import nltk
+            from nltk.corpus import stopwords
+
+            for package in ("punkt", "punkt_tab", "stopwords"):
+                nltk.download(package, quiet=True)
+            stopwords.words("english")   # forces a real lookup, so missing data fails here
+            _NLTK_READY = True
+        except Exception:
+            _NLTK_READY = False
+    return _NLTK_READY
+
+
+def clean_tokens(text: str) -> list[str]:
+    """Lowercased word tokens, minus stopwords and punctuation."""
+    import string
+    from nltk.tokenize import word_tokenize
+    from nltk.corpus import stopwords
+
+    stop = set(stopwords.words("english"))
+    tokens = [w.lower() for w in word_tokenize(text)]
+    return [t for t in tokens if t not in stop and t not in string.punctuation]
+
+
+def ttr(tokens: list[str]) -> float:
+    """Type-token ratio — naive but fast."""
+    if not tokens:
+        return 0.0
+    return len(set(tokens)) / len(tokens)
+
+
+def mtld(tokens: list[str], threshold: float = 0.72) -> float:
+    """Measure of Textual Lexical Diversity."""
+    if not tokens:
+        return 0.0
+
+    factors, segment = 0, []
+    for t in tokens:
+        segment.append(t)
+        if (len(set(segment)) / len(segment)) < threshold:
+            factors += 1
+            segment = []
+
+    if segment:
+        factors += (len(segment) / (len(set(segment)) / threshold))
+
+    return len(tokens) / factors if factors else 0.0
+
+
+# -----------------------------------------------
+# Tightening score
+# -----------------------------------------------
+
+def tightening_score(df):
+    """
+    Composite revision-priority score: wordy + dense + long-sentenced + hard to read.
+    Takes a DataFrame with fog / fk / words / flesch columns, returns a Series.
+    """
+    return (
+        df["fog"] * 0.5
+        + df["fk"] * 0.3
+        + df["words"] * 0.0005
+        + (df["flesch"].max() - df["flesch"]) * 0.3
+    )
+
+
+# -----------------------------------------------
+# Pacing curve plot
+# -----------------------------------------------
+
+def plot_pacing_curve(df, output_path: str = "pacing_curve.png") -> Path:
+    """Plot Flesch score against chapter order. Returns the written path."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(df["order"], df["flesch"], marker="o", linewidth=1.5)
+    ax.axhline(60, color="gray", linestyle="--", linewidth=0.8, label="Readable threshold (60)")
+    ax.set_title("Pacing Curve (Flesch Reading Ease)")
+    ax.set_xlabel("Chapter order")
+    ax.set_ylabel("Flesch score")
+    ax.legend()
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150)
+    plt.close(fig)
+    return Path(output_path)
+
+
+# -----------------------------------------------
 # matplotlib cache — call once at import time
-# so every script that imports utils gets it set
+# so every script that imports read_stats gets it set
 # -----------------------------------------------
 
 _cache_dir = (Path(__file__).parent / ".matplotlib_cache").resolve()

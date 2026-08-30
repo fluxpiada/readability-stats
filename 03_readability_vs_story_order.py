@@ -4,12 +4,8 @@ Usage: python 03_readability_vs_story_order.py [folder]
 """
 
 import sys
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import pandas as pd
-from pathlib import Path
-from read_stats import load_chapters, readability_metrics  # also sets MPLCONFIGDIR
+from read_stats import load_chapters, plot_pacing_curve, readability_metrics  # also sets MPLCONFIGDIR
 
 MANUSCRIPT = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
 
@@ -30,20 +26,8 @@ def build_dataframe(folder: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def plot_pacing_curve(df: pd.DataFrame, output_path: str = "pacing_curve.png") -> None:
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(df["order"], df["flesch"], marker="o", linewidth=1.5)
-    ax.axhline(60, color="gray", linestyle="--", linewidth=0.8, label="Readable threshold (60)")
-    ax.set_title("Pacing Curve (Flesch Reading Ease)")
-    ax.set_xlabel("Chapter order")
-    ax.set_ylabel("Flesch score")
-    ax.legend()
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=150)
-    print(f"Saved: {Path(output_path).resolve()}")
-
-
 if __name__ == "__main__":
     folder = sys.argv[1] if len(sys.argv) > 1 else MANUSCRIPT
     df = build_dataframe(folder)
-    plot_pacing_curve(df)
+    written = plot_pacing_curve(df)
+    print(f"Saved: {written.resolve()}")

@@ -27,6 +27,54 @@ Non-interactive forms:
 ./run.sh all ~/Documents/my-book/manuscript   # every step, in order
 ```
 
+### The report
+
+Step 8 is the one to run if you want something to keep rather than something to read in the
+terminal. It runs every analysis in a single pass and writes both formats:
+
+```bash
+./run.sh 8 ~/Documents/my-book/manuscript
+```
+
+Every run is snapshotted into its own timestamped folder and never overwrites an earlier one,
+so you can watch the manuscript change across drafts:
+
+```text
+reports/
+├── index.md                    every snapshot, with the change from the run before it
+├── latest -> 2026-08-30-1930   symlink to the newest, so one path always works
+├── 2026-08-24-1102/
+└── 2026-08-30-1930/
+    ├── report.md               all tables, diffs cleanly between drafts
+    ├── report.pdf              the same content, laid out — hand this to an editor
+    ├── pacing_curve.png        embedded in both
+    └── summary.json            the headline figures, used to build index.md
+```
+
+`reports/index.md` is the one to open when you want the trend rather than a single run — it
+tables every snapshot with the change in word count and mean Flesch since the previous one:
+
+```text
+| Snapshot        | Chapters | Words  | Words change | Mean Flesch | Flesch change |
+| 2026-08-24-1102 | 32       | 78,410 | —            | 62.1        | —             |
+| 2026-08-30-1930 | 34       | 81,255 | +2,845       | 60.4        | -1.7          |
+```
+
+It is rebuilt from the `summary.json` files on every run, so deleting a snapshot folder is all
+it takes to drop it from the index.
+
+To write somewhere specific instead — no timestamp, no snapshot, no index — pass a second
+argument:
+
+```bash
+uv run 08_report.py ~/Documents/my-book/manuscript ~/Desktop/for-my-editor
+```
+
+Each report opens with a summary (chapter count, total words, estimated manuscript and
+paperback pages), then the per-chapter table, the hardest-to-easiest ranking, the tightening
+priority list, the chapter-to-chapter changes, the pacing curve, and finally a glossary
+explaining what every statistic means and what it cannot tell you.
+
 ### Running a single script directly
 
 If uv is already installed, you can skip the wrapper entirely:
@@ -126,15 +174,20 @@ point you at.
 | `05_lexical_div.py` | TTR and MTLD lexical diversity per chapter |
 | `06_complex_deltas.py` | Chapter-to-chapter deltas in Flesch, Fog, and word count |
 | `07_tightening.py` | Ranks chapters by tightening priority (wordiness + density score) |
+| `08_report.py` | Every statistic in one `report.md` + `report.pdf`, with the metrics explained |
 | `countwords.py` | Word count per chapter, plus the manuscript total |
 
-Steps 04 and 05 download the NLTK `punkt` and `stopwords` data on first run.
+Steps 04, 05 and 08 download the NLTK `punkt` and `stopwords` data on first run. If that
+download is not possible, step 08 drops the TTR/MTLD columns and notes it in the report rather
+than failing.
 
 ## Shared code
 
 `read_stats.py` holds everything shared: `strip_markdown`, `count_syllables`,
-`readability_metrics`, `extract_docx` and `load_chapters`. Edit there, not in the individual
-scripts.
+`readability_metrics`, `extract_docx`, `load_chapters`, the lexical-diversity functions
+(`clean_tokens`, `ttr`, `mtld`), the `tightening_score` formula and `plot_pacing_curve`.
+Edit there, not in the individual scripts — the report and the individual steps both read from
+this module, so a formula changed here stays consistent across every output.
 
 ## Dependencies
 
