@@ -8,7 +8,7 @@ import string
 import nltk
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
-from utils import load_chapters
+from read_stats import load_chapters
 
 MANUSCRIPT = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
 

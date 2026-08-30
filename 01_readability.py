@@ -4,7 +4,7 @@ Usage: python 01_readability.py [folder]
 """
 
 import sys
-from utils import load_chapters, readability_metrics
+from read_stats import load_chapters, readability_metrics
 
 MANUSCRIPT = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
 

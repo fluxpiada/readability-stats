@@ -5,7 +5,7 @@ Usage: python 06_complex_deltas.py [folder]
 
 import sys
 import pandas as pd
-from utils import load_chapters, readability_metrics
+from read_stats import load_chapters, readability_metrics
 
 MANUSCRIPT = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
 

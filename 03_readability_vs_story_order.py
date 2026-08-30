@@ -9,7 +9,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 from pathlib import Path
-from utils import load_chapters, readability_metrics  # also sets MPLCONFIGDIR
+from read_stats import load_chapters, readability_metrics  # also sets MPLCONFIGDIR
 
 MANUSCRIPT = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
 

@@ -5,7 +5,7 @@ Usage: python 02_convert_md_txt.py [folder] [output_dir]
 
 import sys
 from pathlib import Path
-from utils import load_chapters
+from read_stats import load_chapters
 
 MANUSCRIPT  = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
 OUTPUT_DIR  = "converted_txt"

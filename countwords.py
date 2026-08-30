@@ -1,18 +1,26 @@
-import ebooklib
-import re
-from ebooklib import epub
+"""
+countwords.py — total word count across all .md and .docx files in a folder.
+Usage: python countwords.py [folder]
+"""
 
-def count_words_in_epub(file_path):
-    book = epub.read_epub("/Users/flofonic/Documents/Blackout/blackout/versions/Blackout_Weak_Signals_v1.11.28.epub")
-    total_words = 0
-    
-    for item in book.get_items():
-        if item.get_type() == ebooklib.ITEM_DOCUMENT:
-            text = item.get_body_content()
-            words = re.findall(r'\w+', text.decode('utf-8'))
-            total_words += len(words)
-    
-    return total_words
+import sys
+from read_stats import load_chapters, readability_metrics
 
-epub_file = 'path/to/your/book.epub'
-print(f'Total words: {count_words_in_epub(epub_file)}')
+MANUSCRIPT = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
+
+
+def main(folder: str = MANUSCRIPT) -> None:
+    chapters = load_chapters(folder)
+    total = 0
+    for filename, text in chapters:
+        m = readability_metrics(text)
+        if m:
+            total += m["words"]
+            print(f"{m['words']:>7}  {filename}")
+    print("-" * 40)
+    print(f"{total:>7}  TOTAL")
+
+
+if __name__ == "__main__":
+    folder = sys.argv[1] if len(sys.argv) > 1 else MANUSCRIPT
+    main(folder)

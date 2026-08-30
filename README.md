@@ -1,2 +1,142 @@
 # readability-stats
-Python script that analyses your texts and provides a nice little graph too.
+
+Python scripts that analyse the readability, pacing and vocabulary of a manuscript
+made of `.md` or `.docx` files — one file per chapter — and draw a few graphs along the way.
+
+---
+
+## Quick start
+
+Everything runs through [uv](https://docs.astral.sh/uv/) from Astral. You do **not** need to
+install Python or any packages yourself — uv fetches the right Python version and all
+dependencies into a local `.venv/` on first run.
+
+```bash
+git clone https://github.com/<your-user>/readability-stats.git
+cd readability-stats
+./run.sh
+```
+
+`run.sh` installs uv if it is missing, syncs the environment, then asks which analysis to run
+and which folder to point at.
+
+Non-interactive forms:
+
+```bash
+./run.sh 01 ~/Documents/my-book/manuscript    # one step
+./run.sh all ~/Documents/my-book/manuscript   # every step, in order
+```
+
+### Running a single script directly
+
+If uv is already installed, you can skip the wrapper entirely:
+
+```bash
+uv run 01_readability.py ~/Documents/my-book/manuscript
+```
+
+`uv run` syncs the environment first, so there is no activate step and no `pip install`.
+
+### Installing uv by hand
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh    # macOS / Linux
+brew install uv                                    # or via Homebrew
+```
+
+### Input and output
+
+Input is a **folder**. Every `.md` and `.docx` file below it is loaded recursively, sorted by
+path, and treated as one chapter. Any path containing a folder named `draft` is skipped.
+Markdown syntax (headings, links, emphasis, code blocks) is stripped before counting, so the
+markup does not pollute the numbers.
+
+Output files (`pacing_curve.png`, `converted_txt/`, `sentence_histograms/`) are written to the
+directory you run from, not to the manuscript folder.
+
+---
+
+## What the analysis actually tells you
+
+The scripts measure **surface features of the prose** — sentence length, syllable counts, word
+variety — and turn them into a handful of established indices. These are proxies for effort:
+they say how hard a page is to process, not whether it is any good. A tense, well-written
+action scene and a badly written one can score the same. Use the numbers to find *outliers*
+worth re-reading, not as a grade.
+
+### The metrics
+
+**Flesch Reading Ease** — a 0–100 score built from average sentence length and average
+syllables per word. Higher is easier.
+
+| Score | Reads like |
+| --- | --- |
+| 90–100 | very easy, short simple sentences |
+| 60–70 | plain English, most popular fiction |
+| 30–50 | dense — academic, technical, or heavily subordinated prose |
+| below 30 | very hard going |
+
+**Flesch–Kincaid Grade** — the same inputs recast as a US school grade level. `8.0` means an
+average eighth-grader could follow it. Most commercial fiction sits between 5 and 9.
+
+**Gunning Fog** — combines sentence length with the share of "complex" words (three or more
+syllables). Sensitive to jargon and abstraction in a way Flesch is not. Roughly also a grade
+level; under 12 is comfortable for a general reader.
+
+**Sentence length distribution** — a histogram per chapter. The *shape* matters more than the
+average: a healthy scene usually mixes short punches with longer sentences. A narrow spike
+means every sentence is the same length, which reads as monotone regardless of how good the
+individual sentences are.
+
+**Lexical diversity (TTR and MTLD)** — how much of your vocabulary repeats.
+*TTR* (type-token ratio) is unique words ÷ total words; it is simple but drops automatically
+in longer chapters, so only compare chapters of similar length. *MTLD* corrects for that and is
+the number to trust when chapter lengths differ. Low diversity can mean a tight, controlled
+voice — or an unnoticed tic word.
+
+**Chapter-to-chapter deltas** — how far readability, fog and word count jump between
+consecutive chapters. Large swings are where the reading experience changes gear. Sometimes
+that is deliberate pacing; sometimes it is a chapter that was written on a different day in a
+different register.
+
+**Pacing curve** — Flesch plotted against chapter order, with a line at 60. Dips are the dense
+stretches. Long flat runs are where the texture stops changing.
+
+**Tightening score** — a composite ranking that pushes chapters that are simultaneously wordy,
+dense and low-readability to the top. It is a triage list for revision, nothing more: read the
+top few chapters again before you decide anything.
+
+### What it does not measure
+
+Plot, character, tension, dialogue quality, or whether a sentence is beautiful. Deliberately
+difficult prose scores badly here, and short sentences score well even when they are dull.
+Every index above rewards brevity, so do not optimise for the numbers — read the chapters they
+point you at.
+
+---
+
+## Scripts
+
+| Script | What it does |
+| --- | --- |
+| `01_readability.py` | Flesch, FK Grade, Gunning Fog per chapter; sorted summary table |
+| `02_convert_md_txt.py` | Strips markdown and writes plain `.txt` files to `converted_txt/` |
+| `03_readability_vs_story_order.py` | Plots Flesch score across chapter order → `pacing_curve.png` |
+| `04_sentence_length_histo.py` | Sentence-length histogram per chapter → `sentence_histograms/` |
+| `05_lexical_div.py` | TTR and MTLD lexical diversity per chapter |
+| `06_complex_deltas.py` | Chapter-to-chapter deltas in Flesch, Fog, and word count |
+| `07_tightening.py` | Ranks chapters by tightening priority (wordiness + density score) |
+| `countwords.py` | Word count per chapter, plus the manuscript total |
+
+Steps 04 and 05 download the NLTK `punkt` and `stopwords` data on first run.
+
+## Shared code
+
+`read_stats.py` holds everything shared: `strip_markdown`, `count_syllables`,
+`readability_metrics`, `extract_docx` and `load_chapters`. Edit there, not in the individual
+scripts.
+
+## Dependencies
+
+Declared in `pyproject.toml` and pinned in `uv.lock`, so every machine gets the same versions.
+`requirements.txt` is kept only for anyone who would rather use plain pip.

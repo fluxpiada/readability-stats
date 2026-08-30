@@ -9,7 +9,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import nltk
 from pathlib import Path
-from utils import load_chapters  # also sets MPLCONFIGDIR
+from read_stats import load_chapters  # also sets MPLCONFIGDIR
 
 MANUSCRIPT = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
 
