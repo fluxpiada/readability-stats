@@ -148,7 +148,10 @@ def lees_docx(pad: Path) -> str:
         else:
             regels.append(inhoud)
 
-    return "\n".join(regels)
+    # Elke Word-alinea is een alinea. Met een enkele regelovergang zou het hele
+    # hoofdstuk als één blok binnenkomen, en dan telt dialoog.py een hoofdstuk
+    # met één dialoogregel als volledig dialoog.
+    return "\n\n".join(regels)
 
 
 # ---------------------------------------------------------------

@@ -238,16 +238,23 @@ def analyseer(doc, drempel: float = ZIPF_DREMPEL, top: int = 15) -> Woordenschat
         if token.pos_ == "PROPN":
             continue
 
-        score = zipf(lemma)
+        # De Nederlandse lemmatiseerder maakt er soms een niet-bestaand woord van
+        # ("vermoeiende" -> "vermoeien", "verstuurd" -> "verstuuren"). Zo'n vorm
+        # komt in geen enkele frequentielijst voor en zou het woord ten onrechte
+        # zeldzaam maken. We nemen daarom de bekendste van de twee vormen.
+        oppervlakte = token.text.lower()
+        score = max(zipf(lemma), zipf(oppervlakte))
+        vorm = lemma if zipf(lemma) >= zipf(oppervlakte) else oppervlakte
+
         if score >= drempel:
             continue
 
-        if len(splits_samenstelling(lemma)) > 1:
+        if len(splits_samenstelling(vorm)) > 1:
             gered += 1
             continue
 
         aantal_moeilijk += 1
-        moeilijk[lemma] = score
+        moeilijk[vorm] = score
 
     aantal = len(lemmas)
     zeldzaamste = sorted(moeilijk.items(), key=lambda p: p[1])[:top]

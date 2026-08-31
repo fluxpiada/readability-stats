@@ -3,6 +3,17 @@
 Python scripts that analyse the readability, pacing and vocabulary of a manuscript
 made of `.md` or `.docx` files — one file per chapter — and draw a few graphs along the way.
 
+> **Werkt u aan een Nederlands manuscript?** Gebruik dan [`nl/`](nl/README.md).
+>
+> The scripts in this root folder are English through and through: Flesch,
+> Flesch-Kincaid and Gunning Fog are all calibrated on English, the syllable
+> counter strips accented characters (`één` becomes `n`), and it applies the
+> English silent-`e` rule to a language where the final `e` is pronounced.
+> `nl/` is a self-contained Dutch version built on Flesch-Douma (1960) and
+> Brouwer's Leesindex A (1963), with frequency-based word difficulty that
+> handles Dutch compounds, plus passive-voice, tangconstructie and dialogue
+> analysis. Start it with `./nl/run_nl.sh`.
+
 ---
 
 ## Quick start
