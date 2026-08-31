@@ -13,7 +13,7 @@ from pathlib import Path
 
 from . import dialoog as mod_dialoog
 from . import formules, stijl, woordenschat
-from .taal import verwerk, woorden as woordtokens, zinnen as zinlijst
+from .taal import huidig_model, verwerk, woorden as woordtokens, zinnen as zinlijst
 from .tekst import Hoofdstuk, laad_hoofdstukken
 
 
@@ -36,6 +36,10 @@ class Manuscript:
     map_pad: Path
     hoofdstukken: list[HoofdstukAnalyse] = field(default_factory=list)
     conventie: str | None = None
+    # Welk taalmodel de cijfers heeft geproduceerd. De stijlpercentages
+    # verschuiven als dit verandert, dus twee runs met verschillende modellen
+    # zijn niet zonder meer vergelijkbaar. Daarom staat het in het rapport.
+    taalmodel: str | None = None
 
     @property
     def woorden(self) -> int:
@@ -72,8 +76,11 @@ def analyseer_manuscript(map_pad: str | Path, toon_voortgang: bool = True) -> Ma
         "\n\n".join(h.tekst for h in hoofdstukken)
     )
 
+    manuscript.taalmodel = huidig_model()
+
     if toon_voortgang:
-        print(f"  {len(hoofdstukken)} hoofdstukken, taalmodel wordt geladen ...")
+        print(f"  {len(hoofdstukken)} hoofdstukken, taalmodel "
+              f"{manuscript.taalmodel} wordt geladen ...")
 
     docs = verwerk(h.tekst for h in hoofdstukken)
 

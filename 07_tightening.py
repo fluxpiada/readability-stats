@@ -6,7 +6,7 @@ Usage: python 07_tightening.py [folder]
 
 import sys
 import pandas as pd
-from read_stats import load_chapters, readability_metrics, tightening_score
+from read_stats import legend, load_chapters, readability_metrics, tightening_score
 
 MANUSCRIPT = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
 
@@ -38,6 +38,8 @@ def main(folder: str = MANUSCRIPT) -> None:
 
     print("=== Chapters ranked by tightening need (highest priority first) ===\n")
     print(result.to_string(index=False))
+    print()
+    print(legend(["tightening", "flesch", "fog", "fk"]))
 
 
 if __name__ == "__main__":

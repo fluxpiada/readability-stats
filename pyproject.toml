@@ -27,8 +27,8 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["nl/tests"]
-pythonpath = ["nl"]
+testpaths = ["nl/tests", "tests"]
+pythonpath = ["nl", "."]
 
 [tool.uv]
 package = false

@@ -84,10 +84,48 @@ Per maat: wat het meet, waar het vandaan komt, hoe wij het berekenen, en waar
 het tekortschiet. Deze teksten staan ook in het rapport zelf, zodat een
 redacteur die alleen de PDF krijgt kan nagaan waar een getal op steunt.
 
+### Bereik en streefzones in één oogopslag
+
+In de tabellen staat achter elke kolomkop een symbool: **↑** hoger is beter,
+**↓** lager is beter, **•** geen betere kant.
+
+| Maat | Typisch bereik | Beter | Streefzone (fictie) | Herkomst zone |
+|---|---|---|---|---|
+| Flesch-Douma | 0–100, kan erbuiten | ↑ | 60–80 | banden gepubliceerd, fictiezone van ons |
+| Leesindex A | 0–100, kan erbuiten | ↑ | 55–75 | van ons |
+| Fog-NL | 2–12 | ↓ | 3–7 | van ons |
+| Moeilijke woorden | 0–100 % | ↓ | 1–5 % | van ons |
+| TTR | 0–1 | ↑ | *geen streefwaarde* | — |
+| MTLD | 10–200 | ↑ | 60–120 | van ons |
+| Lijdende vorm | 0–100 % | ↓ | 5–15 % | van ons |
+| Tangconstructies | 0–100 % | ↓ | 0–10 % | van ons |
+| Naamwoordstijl /1000 | 0–20 | ↓ | 0–3 | van ons |
+| Schrapwoorden /1000 | 0–40 | ↓ | 5–15 | van ons |
+| Dialoogaandeel | 0–100 % | • | *geen streefwaarde* — genreafhankelijk | — |
+| Zinsritme (spreiding) | 0–15 | ↑ | *geen streefwaarde* | — |
+| Woorden per zin | 5–30 | ↓ | 10–18 | van ons |
+
+Twee dingen om hier scherp te houden.
+
+**Niet elke maat heeft een betere kant.** Dialoogaandeel is genreafhankelijk —
+een dialoogrijke thriller is niet beter of slechter dan een introspectieve
+roman. Bij die maten staat er letterlijk dat er geen streefwaarde is, in plaats
+van een verzonnen getal.
+
+**De meeste streefzones zijn van ons.** De interpretatiebanden van Flesch zijn
+gepubliceerd; "60–80 voor een roman" is redactionele conventie. Daarom staat er
+bij elke zone waar hij vandaan komt. Ze zijn bedoeld als richtpunt, niet als
+norm — en ze staan op één plek zodat u ze kunt bijstellen
+(`leesbaarheid/teksten.py`, `BEREIKEN`).
+
+Buiten de zone vallen is geen fout. Een beladen hoofdstuk mág traag lezen.
+
 ### Flesch-Douma
 
 **Wat het meet.** Leesgemak op een schaal van ongeveer 0 (zeer moeilijk) tot
 100 (zeer makkelijk), op basis van woordlengte en zinslengte.
+
+**Bereik en streefzone.** 0–100 (kan erbuiten vallen), hoger is beter. Streefzone voor fictie 60–80. De interpretatiebanden zijn gepubliceerd; de fictiezone is onze richtlijn.
 
 **Waar het vandaan komt.** Rudolf Flesch publiceerde in 1948 de *Reading
 Ease*-formule voor het Engels. Die is niet zomaar overdraagbaar: Nederlandse
@@ -116,6 +154,8 @@ andere onnavolgbaar. Geijkt op zakelijke tekst, niet op fictie.
 
 **Wat het meet.** Een tweede leesgemakmaat. Hoger is makkelijker.
 
+**Bereik en streefzone.** 0–100 (kan erbuiten vallen), hoger is beter. Streefzone voor fictie 55–75 (onze richtlijn).
+
 **Waar het vandaan komt.** **R.H.M. Brouwer**, "Onderzoek naar de
 leesmoeilijkheid van Nederlands proza", *Pedagogische Studiën* 40 (**1963**).
 Onafhankelijk van Douma geijkt, en jarenlang gebruikt als basis voor het bepalen
@@ -138,6 +178,8 @@ zinnen met lange woorden, of andersom. Dat verschil is zelf het signaal.
 **Wat het meet.** Zinslengte en moeilijke woorden in één getal. Lager is
 toegankelijker.
 
+**Bereik en streefzone.** 2–12, lager is beter. Streefzone voor fictie 3–7 (onze richtlijn — net als de maat zelf).
+
 **Waar het vandaan komt.** ⚠️ **Geen gepubliceerde maat — dit is een bewerking
 van ons.** De vorm komt van Gunning Fog, maar de definitie van "moeilijk woord"
 is vervangen. Gunning Fog rekent elk woord van drie lettergrepen of meer als
@@ -155,6 +197,8 @@ hoofdstukken onderling te vergelijken, niet als absoluut cijfer.
 ### Moeilijke woorden
 
 **Wat het meet.** Het percentage woorden dat in het Nederlands zelden voorkomt.
+
+**Bereik en streefzone.** 0–100 %, lager is beter. Streefzone voor fictie 1–5 % (onze richtlijn).
 
 **Waar het vandaan komt.** De **Zipf-schaal** van **van Heuven, Mandera,
 Keuleers & Brysbaert (2014)**, ingevoerd bij SUBTLEX-UK: een logaritmische
@@ -196,6 +240,8 @@ ontbreekt. De samenstellingssplitsing is een heuristiek en zit er soms naast:
 
 **Wat het meet.** Hoe gevarieerd de woordkeus is. Hoger is gevarieerder.
 
+**Bereik en streefzone.** TTR 0–1 en MTLD 10–200, hoger is gevarieerder. Voor MTLD 60–120 (onze richtlijn); voor TTR géén streefwaarde, omdat hij vanzelf daalt bij langere hoofdstukken.
+
 **Waar het vandaan komt.** MTLD is de *Measure of Textual Lexical Diversity*
 van **McCarthy & Jarvis**. TTR (type-token ratio) is simpelweg het aandeel
 unieke woorden.
@@ -215,6 +261,8 @@ voor bedoeld; gebruik die als u hoofdstukken naast elkaar legt.
 **Wat het meet.** Het percentage zinnen in de lijdende vorm: *de brief werd
 ondertekend*.
 
+**Bereik en streefzone.** 0–100 % van de zinnen, lager is meestal beter. Streefzone voor fictie 5–15 % (onze richtlijn). Nul is geen doel: soms is de lijdende vorm precies goed.
+
 **Waar het vandaan komt.** **Genootschap Onze Taal**, Taalloket, thema
 *duidelijk schrijven*. Belangrijk: Onze Taal ontraadt de lijdende vorm **niet**
 categorisch. Hij is functioneel wanneer de handelende persoon er niet toe doet
@@ -233,6 +281,8 @@ Het kleine taalmodel zit er bij ingewikkelde zinnen soms naast.
 
 **Wat het meet.** Het percentage zinnen waarin woorden die bij elkaar horen ver
 uit elkaar staan, zodat de lezer het begin moet vasthouden tot het eind.
+
+**Bereik en streefzone.** 0–100 % van de zinnen, lager is beter. Streefzone voor fictie 0–10 % (onze richtlijn).
 
 **Waar het vandaan komt.** **Genootschap Onze Taal** en **Taaladvies.net**, de
 adviesdienst van de **Nederlandse Taalunie**. Zij omschrijven een tangconstructie
@@ -257,6 +307,8 @@ drempel is een keuze, geen norm.
 **Wat het meet.** Een werkwoord vervangen door een naamwoord plus hulpwerkwoord:
 *een beslissing nemen* in plaats van *beslissen*.
 
+**Bereik en streefzone.** 0–20 per 1000 woorden, lager is beter. Streefzone voor fictie 0–3 (onze richtlijn).
+
 **Waar het vandaan komt.** **Genootschap Onze Taal**, Taalloket. Zij beschrijven
 het effect als afstandelijker, waardoor de boodschap wordt verzacht — soms
 ongewenst, soms precies de bedoeling.
@@ -275,6 +327,8 @@ ambtelijke dialoog. Signalering, geen fout.
 **Wat het meet.** Stoplappen en versterkers per duizend woorden: *eigenlijk,
 gewoon, echt, natuurlijk, in feite*.
 
+**Bereik en streefzone.** 0–40 per 1000 woorden, lager is beter. Streefzone voor fictie 5–15 (onze richtlijn). Nul is geen doel — in dialoog horen stopwoorden thuis.
+
 **Waar het vandaan komt.** ⚠️ **Geen gezaghebbende bron.** Dit is redactionele
 conventie, geen taalregel. De lijst is samengesteld uit gangbaar schrijfadvies
 en is de enige maat in deze tool zonder publicatie eronder.
@@ -290,6 +344,8 @@ realistisch — zo praten mensen. Lees de vindplaatsen, niet alleen het getal.
 
 **Wat het meet.** Het percentage woorden in dialoogalinea's, welke
 aanhalingsconventie u hanteert, en welke hoofdstukken daarvan afwijken.
+
+**Bereik en streefzone.** 0–100 % van de woorden. **Geen betere kant en geen streefwaarde**: hoeveel dialoog een boek hoort te hebben, hangt volledig van genre en stem af.
 
 **Waar het vandaan komt.** Voor dialoogopmaak bestaat **geen officiële
 Nederlandse regel**, en dat is zelf de belangrijkste bevinding. **Onze Taal**:
@@ -314,6 +370,8 @@ opduiken — controleer de melding voordat u iets verandert.
 ### Zinsritme
 
 **Wat het meet.** Gemiddelde, mediaan, p90 en **spreiding** van de zinslengte.
+
+**Bereik en streefzone.** Spreiding 0–15, meer variatie leest levendiger. **Geen streefwaarde** — er bestaat geen goede of foute zinslengte.
 
 **Waar het vandaan komt.** Beschrijvende statistiek. Geen geijkte index, geen
 norm, geen bron — het is gewoon het meten van uw eigen zinnen.
@@ -483,19 +541,51 @@ Alles wat een keuze is in plaats van een bron, staat op één plek.
 | Grens voor een moeilijk woord | `leesbaarheid/woordenschat.py` → `ZIPF_DREMPEL` | 3,0 |
 | Grens voor samenstellingsdelen | `leesbaarheid/woordenschat.py` → `ZIPF_DEEL_DREMPEL` | 3,3 |
 | Lichte werkwoorden (naamwoordstijl) | `leesbaarheid/stijl.py` → `LICHTE_WERKWOORDEN` | doen, maken, geven … |
+| Bereiken en streefzones | `leesbaarheid/teksten.py` → `BEREIKEN` | zie tabel boven |
 | Alle Nederlandse rapportteksten | `leesbaarheid/teksten.py` | — |
-| Groter taalmodel | omgevingsvariabele `RS_SPACY_MODEL` | `nl_core_news_sm` |
+| Taalmodel | `./nl/run_nl.sh taalmodel` | `nl_core_news_sm` |
 
 De schrapwoordenlijst is nadrukkelijk bedoeld om aan te passen: het is uw stem,
 niet die van een taaladviseur. Staat er een woord in dat u bewust gebruikt,
-haal het eruit.
+haal het eruit. Hetzelfde geldt voor de streefzones: het zijn richtpunten, en
+de meeste zijn van ons.
 
-Een groter taalmodel gebruiken:
+### Een nauwkeuriger taalmodel
+
+De stijlanalyse — lijdende vorm, tangconstructies, naamwoordstijl — draait op
+een taalmodel. Standaard is dat het kleine model, dat goed werkt maar niet
+foutloos is. Een groter model herkent ingewikkelde zinnen beter.
 
 ```bash
-uv run --group nl python -m spacy download nl_core_news_md
+./nl/run_nl.sh taalmodel        # laat zien wat er is en wat u gebruikt
+./nl/run_nl.sh taalmodel md     # kiezen, en desgewenst meteen ophalen
+```
+
+| Model | Download | Waarvoor |
+|---|---|---|
+| `nl_core_news_sm` | 12 MB | standaard; snel en voor de meeste teksten prima |
+| `nl_core_news_md` | 40 MB | met woordvectoren; de zinnige stap omhoog |
+| `nl_core_news_lg` | 541 MB | grote vectoren; forse download, beperkte extra winst |
+
+Voor het Nederlands bestaan alleen deze drie: er is **geen** `nl_core_news_trf`,
+anders dan voor sommige andere talen. Dit is dus het hele scala.
+
+De keuze wordt onthouden voor volgende runs. Eenmalig afwijken kan ook:
+
+```bash
+uv run --group nl python nl/analyseer.py stijl ~/Documenten/mijn-boek --model md
 RS_SPACY_MODEL=nl_core_news_md ./nl/run_nl.sh stijl ~/Documenten/mijn-boek
 ```
+
+> **Let op bij het vergelijken van runs.** De stijlpercentages verschuiven als u
+> van model wisselt — hetzelfde hoofdstuk kan met `md` een ander passiefcijfer
+> krijgen dan met `sm`. Daarom staat het gebruikte model in het rapport, in
+> `samenvatting.json` en in de kolom Taalmodel van `rapporten/index.md`. Ziet u
+> een sprong tussen twee runs, kijk daar eerst.
+
+Installeren gebeurt met `uv pip install` en een vastgepinde wheel-URL, niet met
+`python -m spacy download`: die laatste roept pip aan, en een door uv beheerde
+omgeving heeft geen pip.
 
 ---
 

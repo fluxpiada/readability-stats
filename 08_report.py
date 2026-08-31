@@ -18,10 +18,14 @@ import pandas as pd
 from read_stats import (
     clean_tokens,
     ensure_nltk_data,
+    header,
+    legend,
     load_chapters,
     mtld,
     plot_pacing_curve,
+    range_note,
     readability_metrics,
+    register_unicode_font,
     tightening_score,
     ttr,
 )
@@ -39,46 +43,50 @@ WORDS_PER_PAPERBACK_PAGE  = 300   # typeset trade paperback
 # markdown and the PDF always say the same thing
 # -----------------------------------------------
 
+# Each entry is (metric key, term, explanation). The key pulls the range,
+# direction and target out of read_stats.METRICS, so the glossary and the table
+# headers can never disagree about which way is up. None means the entry has no
+# column of its own (the chart, for instance).
 GLOSSARY = [
-    ("Flesch Reading Ease",
+    ("flesch", "Flesch Reading Ease",
      "A 0–100 score built from average sentence length and average syllables per word. "
      "Higher is easier. 90–100 is very easy, 60–70 is plain English and where most popular "
      "fiction sits, 30–50 is dense (academic or heavily subordinated prose), and below 30 is "
      "very hard going. Scores can fall outside 0–100 in short or extreme passages."),
 
-    ("Flesch–Kincaid Grade",
+    ("fk", "Flesch–Kincaid Grade",
      "The same inputs as Flesch, recast as a US school grade level. 8.0 means an average "
      "eighth-grader could follow it. Most commercial fiction lands between 5 and 9."),
 
-    ("Gunning Fog",
+    ("fog", "Gunning Fog",
      "Combines sentence length with the share of complex words (three or more syllables). It "
      "is sensitive to jargon and abstraction in a way Flesch is not. Also roughly a grade "
      "level: under 12 is comfortable for a general reader."),
 
-    ("Average sentence length",
+    ("avg_sent", "Average sentence length",
      "Words divided by sentences. Useful next to the readability scores, because a chapter can "
      "score badly either from long sentences or from long words, and this separates the two."),
 
-    ("TTR (type-token ratio)",
+    ("ttr", "TTR (type-token ratio)",
      "Unique words divided by total words, after stopwords and punctuation are removed. Simple, "
      "but it falls automatically as a chapter gets longer, so only compare chapters of similar "
      "length — otherwise you are measuring word count, not vocabulary."),
 
-    ("MTLD",
+    ("mtld", "MTLD",
      "Measure of Textual Lexical Diversity — vocabulary variety corrected for length. This is "
      "the number to trust when your chapters differ in size. Low diversity can mean a tight, "
      "controlled voice, or it can mean an unnoticed tic word."),
 
-    ("Chapter-to-chapter deltas",
+    ("delta", "Chapter-to-chapter deltas",
      "How far readability, fog and word count jump between consecutive chapters. Large swings "
      "are where the reading experience changes gear. Sometimes that is deliberate pacing; "
      "sometimes it is a chapter written on a different day in a different register."),
 
-    ("Pacing curve",
+    (None, "Pacing curve",
      "Flesch plotted against chapter order, with a line at 60. Dips are the dense stretches. "
      "Long flat runs are where the texture stops changing."),
 
-    ("Tightening score",
+    ("tightening", "Tightening score",
      "A composite ranking that pushes chapters which are simultaneously wordy, dense and "
      "low-readability to the top. It is a triage list for revision, nothing more: re-read the "
      "top few chapters before you decide anything."),
@@ -148,12 +156,14 @@ def fmt(value, decimals: int = 1) -> str:
 
 def table_data(df: pd.DataFrame, lexical: bool) -> dict[str, tuple[list[str], list[list[str]]]]:
     """Build every table once, as (headers, rows) of preformatted strings."""
-    # Headers are shared by both writers, so they avoid glyphs outside WinAnsi
-    # (reportlab's standard fonts silently drop them) and stay short enough
-    # not to wrap in the PDF's narrow numeric columns.
-    per_chapter_headers = ["Chapter", "Words", "Sents", "Avg len", "Flesch", "FK", "Fog"]
+    # Headers are shared by both writers and stay short enough not to wrap in
+    # the PDF's narrow numeric columns. They may now use the direction arrows:
+    # write_pdf registers DejaVuSans, so glyphs outside WinAnsi survive.
+    per_chapter_headers = ["Chapter", "Words", "Sents",
+                           header("avg_sent"), header("flesch"),
+                           header("fk"), header("fog")]
     if lexical:
-        per_chapter_headers += ["TTR", "MTLD"]
+        per_chapter_headers += [header("ttr"), header("mtld")]
 
     per_chapter = []
     for _, r in df.iterrows():
@@ -180,10 +190,31 @@ def table_data(df: pd.DataFrame, lexical: bool) -> dict[str, tuple[list[str], li
 
     return {
         "per_chapter": (per_chapter_headers, per_chapter),
-        "hardest":     (["Chapter", "Flesch", "FK", "Fog", "Words"], hardest),
-        "tightening":  (["Chapter", "Score", "Flesch", "Fog", "Words"], tightening),
-        "deltas":      (["Chapter", "Flesch change", "Fog change", "Words change"], deltas),
+        "hardest":     (["Chapter", header("flesch"), header("fk"),
+                         header("fog"), "Words"], hardest),
+        "tightening":  (["Chapter", header("tightening"), header("flesch"),
+                         header("fog"), "Words"], tightening),
+        "deltas":      (["Chapter", header("delta", "Flesch change"),
+                         header("delta", "Fog change"),
+                         header("delta", "Words change")], deltas),
     }
+
+
+# Which metric columns each table shows, so the legend under it matches.
+TABLE_KEYS = {
+    "per_chapter": ["avg_sent", "flesch", "fk", "fog", "ttr", "mtld"],
+    "hardest":     ["flesch", "fk", "fog"],
+    "tightening":  ["tightening", "flesch", "fog"],
+    "deltas":      ["delta"],
+}
+
+
+def table_legend(key: str, lexical: bool = True) -> str:
+    """The legend line under the table with this key."""
+    keys = TABLE_KEYS.get(key, [])
+    if not lexical:
+        keys = [k for k in keys if k not in ("ttr", "mtld")]
+    return legend(keys)
 
 
 def summary_lines(df: pd.DataFrame, folder: str) -> list[tuple[str, str]]:
@@ -246,14 +277,20 @@ def write_markdown(df, lexical, tables, folder, out_dir, chart_name) -> Path:
     for key, title, blurb in SECTIONS:
         headers, rows = tables[key]
         parts += [f"## {title}", "", blurb, "", md_table(headers, rows), ""]
+        note = table_legend(key, lexical)
+        if note:
+            parts += ["*" + note.replace("\n", "*  \n*") + "*", ""]
 
     parts += ["## Pacing curve", "",
               "Flesch score across chapter order. The dashed line is the readable threshold (60).",
               "", f"![Pacing curve]({chart_name})", ""]
 
     parts += ["## What each statistic means", ""]
-    for term, explanation in GLOSSARY:
+    for key, term, explanation in GLOSSARY:
         parts += [f"**{term}** — {explanation}", ""]
+        note = range_note(key) if key else ""
+        if note:
+            parts += [f"*{note}*", ""]
 
     parts += ["### What this does not measure", "", CAVEAT, ""]
 
@@ -285,14 +322,22 @@ def write_pdf(df, lexical, tables, folder, out_dir, chart_path) -> Path:
     )
     content_width = doc.width
 
+    # Must happen before any style names the font: the direction arrows are
+    # outside WinAnsi and Helvetica would drop them without saying so.
+    base_font = register_unicode_font()
+    bold_font = f"{base_font}-Bold" if base_font != "Helvetica" else "Helvetica-Bold"
+
     styles = getSampleStyleSheet()
-    body = ParagraphStyle("body", parent=styles["BodyText"], fontSize=9.5, leading=13,
-                          alignment=TA_JUSTIFY, spaceAfter=6)
+    body = ParagraphStyle("body", parent=styles["BodyText"], fontName=base_font,
+                          fontSize=9.5, leading=13, alignment=TA_JUSTIFY, spaceAfter=6)
     blurb_style = ParagraphStyle("blurb", parent=body, textColor=colors.HexColor("#555555"),
                                  alignment=0, spaceAfter=8)
-    cell = ParagraphStyle("cell", parent=styles["BodyText"], fontSize=8, leading=10, spaceAfter=0)
+    legend_style = ParagraphStyle("legend", parent=blurb_style, fontSize=8,
+                                  textColor=colors.HexColor("#666666"), spaceBefore=3)
+    cell = ParagraphStyle("cell", parent=styles["BodyText"], fontName=base_font,
+                          fontSize=8, leading=10, spaceAfter=0)
     head_cell = ParagraphStyle("headcell", parent=cell, textColor=colors.white,
-                               fontName="Helvetica-Bold")
+                               fontName=bold_font)
     h1 = ParagraphStyle("h1", parent=styles["Title"], fontSize=20, spaceAfter=14)
     h2 = ParagraphStyle("h2", parent=styles["Heading2"], fontSize=13, spaceBefore=14,
                         spaceAfter=6, textColor=colors.HexColor("#1a1a1a"))
@@ -328,6 +373,7 @@ def write_pdf(df, lexical, tables, folder, out_dir, chart_path) -> Path:
         t = Table(data, colWidths=[first_col] + [others] * (len(headers) - 1), repeatRows=1)
         t.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#37474f")),
+            ("FONTNAME", (0, 0), (-1, -1), base_font),
             ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("FONTSIZE", (1, 1), (-1, -1), 8),
@@ -340,11 +386,15 @@ def write_pdf(df, lexical, tables, folder, out_dir, chart_path) -> Path:
 
     for key, title, blurb in SECTIONS:
         headers, rows = tables[key]
-        story.append(KeepTogether([
+        block = [
             Paragraph(title, h2),
             Paragraph(blurb, blurb_style),
             build_table(headers, rows),
-        ]))
+        ]
+        note = table_legend(key, lexical)
+        if note:
+            block.append(Paragraph(note.replace("\n", "<br/>"), legend_style))
+        story.append(KeepTogether(block))
 
     # --- chart ---
     if chart_path.exists():
@@ -360,8 +410,11 @@ def write_pdf(df, lexical, tables, folder, out_dir, chart_path) -> Path:
     # --- glossary ---
     story.append(PageBreak())
     story.append(Paragraph("What each statistic means", h2))
-    for term, explanation in GLOSSARY:
+    for key, term, explanation in GLOSSARY:
         story.append(Paragraph(f"<b>{term}</b> — {explanation}", body))
+        note = range_note(key) if key else ""
+        if note:
+            story.append(Paragraph(note, legend_style))
 
     story.append(Paragraph("What this does not measure", h2))
     story.append(Paragraph(CAVEAT, body))

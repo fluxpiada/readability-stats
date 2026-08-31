@@ -292,6 +292,154 @@ MAAT_PER_SLEUTEL = {m.sleutel: m for m in MATEN}
 
 
 # ---------------------------------------------------------------
+# Bereik, richting en streefzone
+# ---------------------------------------------------------------
+#
+# Zonder deze tabel is een getal in het rapport betekenisloos: is 58 goed of
+# slecht, en welke kant op? Hier staat per kolom wat het bereik is, welke kant
+# beter is, en waar een roman ongeveer zou moeten uitkomen.
+#
+# Twee dingen bewust:
+#
+# 1. Sommige maten hebben géén betere kant. Dialoogaandeel is genreafhankelijk —
+#    een dialoogrijke thriller is niet beter of slechter dan een introspectieve
+#    roman. Die krijgen richting "geen" en zeggen letterlijk dat er geen
+#    streefwaarde is, in plaats van een verzonnen bereik.
+# 2. De meeste streefzones zijn van ons, niet gepubliceerd. De interpretatie-
+#    banden van Flesch zijn dat wel, "60–80 voor een roman" niet. Daarom staat
+#    er bij elke zone waar hij vandaan komt — dezelfde regel die in dit bestand
+#    al geldt voor Fog-NL en de schrapwoordenlijst.
+
+RICHTINGEN = ("hoger", "lager", "geen")
+
+# `streefbron` is vrije tekst — bij Flesch-Douma zijn de banden gepubliceerd
+# maar is de fictiezone van ons, en dat verschil is het opschrijven waard.
+# Wel moet er altijd één van deze woorden in staan, zodat er nooit een zone
+# opduikt waarvan niemand meer weet of hij uit de literatuur komt of van ons.
+STREEFBRONNEN = ("gepubliceerd", "eigen richtlijn", "geen")
+
+SYMBOLEN = {"hoger": "↑", "lager": "↓", "geen": "•"}
+
+GEEN_STREEFWAARDE = "geen streefwaarde"
+
+
+@dataclass(frozen=True)
+class Bereik:
+    """Hoe een kolom gelezen moet worden."""
+
+    bereik: str          # typisch bereik, niet per se een harde grens
+    richting: str        # welke kant is beter: hoger | lager | geen
+    streefzone: str      # waar een roman ongeveer uitkomt
+    streefbron: str      # waar die zone vandaan komt
+
+    @property
+    def symbool(self) -> str:
+        return SYMBOLEN[self.richting]
+
+    @property
+    def heeft_streefzone(self) -> bool:
+        return not self.streefzone.startswith(GEEN_STREEFWAARDE)
+
+
+BEREIKEN: dict[str, Bereik] = {
+    "flesch_douma": Bereik(
+        "0–100 (kan erbuiten vallen)", "hoger", "60–80",
+        "banden gepubliceerd (Douma); fictiezone is onze richtlijn",
+    ),
+    "leesindex_a": Bereik(
+        "0–100 (kan erbuiten vallen)", "hoger", "55–75", "eigen richtlijn",
+    ),
+    "fog_nl": Bereik("2–12", "lager", "3–7", "eigen richtlijn"),
+    "moeilijk_pct": Bereik("0–100 %", "lager", "1–5 %", "eigen richtlijn"),
+    "ttr": Bereik(
+        "0–1", "hoger",
+        f"{GEEN_STREEFWAARDE} — daalt vanzelf bij langere hoofdstukken",
+        "geen",
+    ),
+    "mtld": Bereik("10–200", "hoger", "60–120", "eigen richtlijn"),
+    "passief_pct": Bereik("0–100 %", "lager", "5–15 %", "eigen richtlijn"),
+    "tang_pct": Bereik("0–100 %", "lager", "0–10 %", "eigen richtlijn"),
+    "naamwoordstijl_per_1000": Bereik("0–20", "lager", "0–3", "eigen richtlijn"),
+    "schrapwoorden_per_1000": Bereik("0–40", "lager", "5–15", "eigen richtlijn"),
+    "dialoog_pct": Bereik(
+        "0–100 %", "geen",
+        f"{GEEN_STREEFWAARDE} — genreafhankelijk",
+        "geen",
+    ),
+    "zinslengte_spreiding": Bereik(
+        "0–15", "hoger",
+        f"{GEEN_STREEFWAARDE} — meer variatie leest levendiger, maar er is geen norm",
+        "geen",
+    ),
+    "woorden_per_zin": Bereik("5–30", "lager", "10–18", "eigen richtlijn"),
+    "lange_woorden_pct": Bereik("0–100 %", "lager", "5–15 %", "eigen richtlijn"),
+}
+
+
+# De begrippenlijst gebruikt de sleutel van de Maat, de tabellen die van de
+# kolom. Waar die verschillen, wijzen beide naar hetzelfde bereik.
+for _maat_sleutel, _kolom in (
+    ("naamwoordstijl", "naamwoordstijl_per_1000"),
+    ("schrapwoorden", "schrapwoorden_per_1000"),
+    ("tempo", "zinslengte_spreiding"),
+):
+    BEREIKEN[_maat_sleutel] = BEREIKEN[_kolom]
+del _maat_sleutel, _kolom
+
+
+def kop(sleutel: str, label: str) -> str:
+    """Kolomkop met het richtingssymbool erachter."""
+    bereik = BEREIKEN.get(sleutel)
+    return f"{label} {bereik.symbool}" if bereik else label
+
+
+def legenda(sleutels) -> str:
+    """
+    Eén regel onder een tabel: wat de symbolen betekenen en waar je ongeveer
+    zou willen uitkomen. Alleen voor de kolommen die in díé tabel staan.
+    """
+    aanwezig = [s for s in sleutels if s in BEREIKEN]
+    if not aanwezig:
+        return ""
+
+    gebruikt = {BEREIKEN[s].richting for s in aanwezig}
+    uitleg = {
+        "hoger": f"{SYMBOLEN['hoger']} hoger is beter",
+        "lager": f"{SYMBOLEN['lager']} lager is beter",
+        "geen": f"{SYMBOLEN['geen']} geen betere kant",
+    }
+    regels = [" · ".join(uitleg[r] for r in RICHTINGEN if r in gebruikt)]
+
+    doelen = [
+        f"{MAAT_PER_SLEUTEL[s].naam if s in MAAT_PER_SLEUTEL else s} {BEREIKEN[s].streefzone}"
+        for s in aanwezig
+        if BEREIKEN[s].heeft_streefzone
+    ]
+    if doelen:
+        regels.append("Streefzone voor fictie: " + " · ".join(doelen))
+
+    return "  \n".join(regels)
+
+
+def bereik_regel(sleutel: str) -> str:
+    """De 'Bereik en streefzone'-regel voor de begrippenlijst."""
+    bereik = BEREIKEN.get(sleutel)
+    if bereik is None:
+        return ""
+    richting = {
+        "hoger": "hoger is beter",
+        "lager": "lager is beter",
+        "geen": "geen betere kant",
+    }[bereik.richting]
+    zone = (
+        f"Streefzone voor fictie: {bereik.streefzone} ({bereik.streefbron})."
+        if bereik.heeft_streefzone
+        else f"{bereik.streefzone.capitalize()}."
+    )
+    return f"Bereik {bereik.bereik}, {richting}. {zone}"
+
+
+# ---------------------------------------------------------------
 # Rapportsecties
 # ---------------------------------------------------------------
 

@@ -52,6 +52,39 @@ def test_markdown_bevat_de_verantwoording(rapportmap):
     assert "GEEN GEZAGHEBBENDE BRON" in tekst
 
 
+def test_markdown_heeft_een_legenda_onder_elke_tabel(rapportmap):
+    tekst = (rapportmap / "rapport.md").read_text(encoding="utf-8")
+    assert tekst.count("hoger is beter") >= 2
+    assert "Streefzone voor fictie" in tekst
+
+
+def test_markdown_geeft_bereik_bij_elke_maat(rapportmap):
+    tekst = (rapportmap / "rapport.md").read_text(encoding="utf-8")
+    assert "Bereik en streefzone" in tekst
+    # de eerlijkheid over waar een zone vandaan komt hoort mee te komen
+    assert "eigen richtlijn" in tekst
+
+
+def test_pijlen_overleven_de_pdf(rapportmap):
+    """
+    De richtingssymbolen vallen buiten WinAnsi. Zonder geregistreerd
+    Unicode-lettertype laat reportlab ze zonder foutmelding weg, en dan staat
+    er een kolomkop zonder richting.
+    """
+    uitvoer = _pdf_naar_tekst(rapportmap / "rapport.pdf")
+    for teken in ("↑", "↓", "•"):
+        assert teken in uitvoer, f"{teken!r} ontbreekt in de PDF"
+
+
+def test_taalmodel_staat_in_het_rapport(rapportmap, manuscript):
+    """
+    Zonder deze vermelding zijn twee runs met verschillende modellen niet uit
+    elkaar te houden, terwijl de stijlcijfers wel verschoven zijn.
+    """
+    tekst = (rapportmap / "rapport.md").read_text(encoding="utf-8")
+    assert manuscript.taalmodel in tekst
+
+
 def test_markdown_noemt_de_moderne_opvolger(rapportmap):
     """Het rapport mag niet suggereren dat Douma het laatste woord is."""
     tekst = (rapportmap / "rapport.md").read_text(encoding="utf-8")

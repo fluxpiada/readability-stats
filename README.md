@@ -123,6 +123,35 @@ they say how hard a page is to process, not whether it is any good. A tense, wel
 action scene and a badly written one can score the same. Use the numbers to find *outliers*
 worth re-reading, not as a grade.
 
+### Ranges and target zones at a glance
+
+Table headers carry a symbol: **↑** higher is better, **↓** lower is better, **•** neither end
+is better.
+
+| Metric | Typical range | Better | Aim (fiction) | Where the target came from |
+| --- | --- | --- | --- | --- |
+| Flesch Reading Ease | 0–100, can fall outside | ↑ | 60–80 | Flesch's bands + convention |
+| Flesch–Kincaid Grade | 1–18 (US grade) | ↓ | 5–9 | convention |
+| Gunning Fog | 6–20 | ↓ | 6–10 | Gunning: under 12 |
+| Average sentence length | 8–25 words | ↓ | 11–18 | ours |
+| TTR | 0–1 | ↑ | *no target* — falls with length | — |
+| MTLD | 10–200 | ↑ | 60–120 | ours |
+| Chapter-to-chapter deltas | unbounded, ± | • | *no target* | — |
+| Tightening score | relative to this manuscript | ↑ | *no target* — a running order | — |
+
+Two things to keep straight.
+
+**Not every statistic has a better end.** A large delta between chapters is not a fault — a
+change of gear can be exactly right. TTR falls automatically as a chapter grows. Those say
+outright that there is no target rather than inventing one. The tightening score is a running
+order for revision, not a measurement: high means "re-read this first", not "this is worse".
+
+**Most target zones are ours.** Flesch's interpretation bands are published; "60–80 for a
+novel" is editorial convention. So each zone records where it came from. They live in
+`read_stats.py` → `METRICS` if you want to tune them.
+
+Falling outside a zone is not a failure. A heavy chapter is allowed to read heavy.
+
 ### The metrics
 
 **Flesch Reading Ease** — a 0–100 score built from average sentence length and average
@@ -135,17 +164,27 @@ syllables per word. Higher is easier.
 | 30–50 | dense — academic, technical, or heavily subordinated prose |
 | below 30 | very hard going |
 
+*Range 0–100 (can fall outside), higher is better. Aim for fiction: 60–80 — the bands are
+Flesch's own, the fiction range is convention.*
+
 **Flesch–Kincaid Grade** — the same inputs recast as a US school grade level. `8.0` means an
 average eighth-grader could follow it. Most commercial fiction sits between 5 and 9.
+
+*Range 1–18, lower is easier. Aim for fiction: 5–9 (convention).*
 
 **Gunning Fog** — combines sentence length with the share of "complex" words (three or more
 syllables). Sensitive to jargon and abstraction in a way Flesch is not. Roughly also a grade
 level; under 12 is comfortable for a general reader.
 
+*Range 6–20, lower is easier. Aim for fiction: 6–10 (Gunning: under 12 suits a general
+reader).*
+
 **Sentence length distribution** — a histogram per chapter. The *shape* matters more than the
 average: a healthy scene usually mixes short punches with longer sentences. A narrow spike
 means every sentence is the same length, which reads as monotone regardless of how good the
 individual sentences are.
+
+*Spread matters more than the mean; there is no target shape.*
 
 **Lexical diversity (TTR and MTLD)** — how much of your vocabulary repeats.
 *TTR* (type-token ratio) is unique words ÷ total words; it is simple but drops automatically
@@ -153,10 +192,16 @@ in longer chapters, so only compare chapters of similar length. *MTLD* corrects 
 the number to trust when chapter lengths differ. Low diversity can mean a tight, controlled
 voice — or an unnoticed tic word.
 
+*TTR 0–1 and MTLD 10–200, higher is more varied. Aim for MTLD 60–120 (ours); TTR has no
+target because it falls automatically in longer chapters.*
+
 **Chapter-to-chapter deltas** — how far readability, fog and word count jump between
 consecutive chapters. Large swings are where the reading experience changes gear. Sometimes
 that is deliberate pacing; sometimes it is a chapter that was written on a different day in a
 different register.
+
+*Unbounded, ±. Neither end is better: a change of gear can be deliberate, so there is no
+target.*
 
 **Pacing curve** — Flesch plotted against chapter order, with a line at 60. Dips are the dense
 stretches. Long flat runs are where the texture stops changing.
@@ -164,6 +209,9 @@ stretches. Long flat runs are where the texture stops changing.
 **Tightening score** — a composite ranking that pushes chapters that are simultaneously wordy,
 dense and low-readability to the top. It is a triage list for revision, nothing more: read the
 top few chapters again before you decide anything.
+
+*Relative to this manuscript, so there is no absolute range and no target. Higher means
+"re-read this one first", not "this is worse writing".*
 
 ### What it does not measure
 

@@ -19,14 +19,20 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from leesbaarheid import teksten  # noqa: E402
 from leesbaarheid.analyse import Manuscript, analyseer_manuscript, naar_dataframe  # noqa: E402
 from leesbaarheid.formules import band  # noqa: E402
 
 
 def _tabel(df, kolommen: dict[str, str]) -> None:
-    """Print een DataFrame als uitgelijnde tekst, zonder extra afhankelijkheden."""
+    """
+    Print een DataFrame als uitgelijnde tekst, zonder extra afhankelijkheden.
+
+    De kolomnamen zijn tegelijk de sleutels in `teksten.BEREIKEN`, dus koppen
+    krijgen vanzelf hun richtingssymbool en er volgt een legenda onder de tabel.
+    """
     aanwezig = {k: v for k, v in kolommen.items() if k in df.columns}
-    koppen = list(aanwezig.values())
+    koppen = [teksten.kop(sleutel, label) for sleutel, label in aanwezig.items()]
 
     rijen = []
     for r in df.itertuples():
@@ -48,6 +54,12 @@ def _tabel(df, kolommen: dict[str, str]) -> None:
     print("  ".join("-" * b for b in breedtes))
     for rij in rijen:
         print("  ".join(c.ljust(b) for c, b in zip(rij, breedtes)))
+
+    uitleg = teksten.legenda(aanwezig)
+    if uitleg:
+        print()
+        for regel in uitleg.split("  \n"):
+            print(regel)
 
 
 def toon_leesbaarheid(manuscript: Manuscript) -> None:
@@ -129,12 +141,48 @@ def toon_rapport(manuscript: Manuscript, map_uit: str | None) -> None:
         print(f"  {bestand.name}")
 
 
+def toon_taalmodel(keuze: str | None) -> int:
+    """Laat zien welke modellen er zijn, of stel er een in."""
+    from leesbaarheid import taal
+
+    if keuze:
+        try:
+            naam = taal.kies_model(keuze)
+        except ValueError as fout:
+            print(fout)
+            return 1
+        print(f"Taalmodel ingesteld op: {naam}")
+        if not taal.is_geinstalleerd(naam):
+            print("\nDit model staat nog niet in de omgeving. Installeer het met:")
+            print(f"  {taal.installatieopdracht(naam)}")
+        return 0
+
+    huidig = taal.huidig_model()
+    beschikbaar = taal.beschikbare_modellen()
+
+    print("Beschikbare Nederlandse taalmodellen:")
+    print()
+    for sleutel, model in taal.MODELLEN.items():
+        vinkje = "geïnstalleerd" if beschikbaar[sleutel] else "niet geïnstalleerd"
+        actief = "  <- in gebruik" if model.naam == huidig else ""
+        print(f"  {sleutel:3} {model.naam:20} {model.grootte:>7}  {vinkje}{actief}")
+        print(f"      {model.omschrijving}")
+    print()
+    print("Kiezen:  ./nl/run_nl.sh taalmodel md")
+    print()
+    print("Let op: de stijlcijfers (passief, tangconstructies, naamwoordstijl)")
+    print("verschuiven als u van model wisselt. Runs met verschillende modellen")
+    print("zijn dus niet zonder meer met elkaar te vergelijken.")
+    return 0
+
+
 OPDRACHTEN = {
     "rapport": None,
     "leesbaarheid": toon_leesbaarheid,
     "stijl": toon_stijl,
     "dialoog": toon_dialoog,
     "woorden": toon_woorden,
+    "taalmodel": None,
 }
 
 
@@ -143,15 +191,35 @@ def main(argv: list[str] | None = None) -> int:
         description="Leesbaarheids- en stijlanalyse voor Nederlandse manuscripten.",
     )
     parser.add_argument("opdracht", choices=sorted(OPDRACHTEN), help="wat u wilt zien")
-    parser.add_argument("map", help="map met .md- of .docx-bestanden")
+    parser.add_argument("map", nargs="?", default=None,
+                        help="map met .md- of .docx-bestanden "
+                             "(of het model, bij 'taalmodel')")
     parser.add_argument("uitvoer", nargs="?", default=None,
                         help="map voor het rapport (alleen bij 'rapport')")
+    parser.add_argument("--model", default=None, metavar="sm|md|lg",
+                        help="eenmalig een ander taalmodel gebruiken")
     argumenten = parser.parse_args(argv)
+
+    if argumenten.opdracht == "taalmodel":
+        return toon_taalmodel(argumenten.map)
+
+    if argumenten.map is None:
+        print("Geef een map met .md- of .docx-bestanden.")
+        return 1
 
     map_pad = Path(argumenten.map).expanduser()
     if not map_pad.is_dir():
         print(f"Dit is geen map: {map_pad}")
         return 1
+
+    if argumenten.model:
+        from leesbaarheid import taal
+        try:
+            naam = taal._volledige_naam(argumenten.model)
+            taal.haal_nlp(naam)          # nu laden, zodat een fout meteen komt
+        except ValueError as fout:
+            print(fout)
+            return 1
 
     print(f"Manuscript: {map_pad}")
     manuscript = analyseer_manuscript(map_pad)

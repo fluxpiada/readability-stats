@@ -61,13 +61,36 @@ def md_tabel(koppen: list[str], rijen: list[list[str]]) -> str:
 # Tabellen
 # ---------------------------------------------------------------
 
+# Welke kolommen in welke tabel staan. Kop en legenda worden hier allebei uit
+# opgebouwd, zodat een tabel nooit een symbool kan tonen dat de legenda niet
+# uitlegt (of andersom).
+TABELKOLOMMEN = {
+    "per_hoofdstuk": ["flesch_douma", "leesindex_a", "fog_nl"],
+    "zwaarste": ["flesch_douma", "woorden_per_zin", "lange_woorden_pct", "moeilijk_pct"],
+    "woordenschat": ["moeilijk_pct", "ttr", "mtld"],
+    "stijl": [
+        "passief_pct", "tang_pct",
+        "naamwoordstijl_per_1000", "schrapwoorden_per_1000",
+    ],
+    "dialoog": ["dialoog_pct", "woorden_per_zin", "zinslengte_spreiding"],
+}
+
+
+def legenda_voor(sleutel: str) -> str:
+    """De legendaregel onder de tabel met deze sleutel."""
+    return teksten.legenda(TABELKOLOMMEN.get(sleutel, []))
+
+
 def tabellen(manuscript: Manuscript) -> dict[str, tuple[list[str], list[list[str]]]]:
     """Alle tabellen als kant-en-klare tekst, zodat md en PDF identiek zijn."""
     df = naar_dataframe(manuscript)
+    kop = teksten.kop
     uit: dict[str, tuple[list[str], list[list[str]]]] = {}
 
     uit["per_hoofdstuk"] = (
-        ["#", "Hoofdstuk", "Woorden", "Flesch-Douma", "Niveau", "Leesindex A", "Fog-NL"],
+        ["#", "Hoofdstuk", "Woorden",
+         kop("flesch_douma", "Flesch-Douma"), "Niveau",
+         kop("leesindex_a", "Leesindex A"), kop("fog_nl", "Fog-NL")],
         [
             [
                 str(r.volgorde),
@@ -84,7 +107,9 @@ def tabellen(manuscript: Manuscript) -> dict[str, tuple[list[str], list[list[str
 
     zwaar = df.sort_values("flesch_douma")
     uit["zwaarste"] = (
-        ["Hoofdstuk", "Flesch-Douma", "Woorden/zin", "Lange woorden %", "Moeilijk %"],
+        ["Hoofdstuk",
+         kop("flesch_douma", "Flesch-Douma"), kop("woorden_per_zin", "Woorden/zin"),
+         kop("lange_woorden_pct", "Lange woorden %"), kop("moeilijk_pct", "Moeilijk %")],
         [
             [
                 r.hoofdstuk,
@@ -98,7 +123,8 @@ def tabellen(manuscript: Manuscript) -> dict[str, tuple[list[str], list[list[str
     )
 
     uit["woordenschat"] = (
-        ["Hoofdstuk", "Moeilijk %", "TTR", "MTLD", "Zeldzaamste woorden"],
+        ["Hoofdstuk", kop("moeilijk_pct", "Moeilijk %"),
+         kop("ttr", "TTR"), kop("mtld", "MTLD"), "Zeldzaamste woorden"],
         [
             [
                 h.hoofdstuk.naam,
@@ -112,7 +138,9 @@ def tabellen(manuscript: Manuscript) -> dict[str, tuple[list[str], list[list[str
     )
 
     uit["stijl"] = (
-        ["Hoofdstuk", "Passief %", "Tang %", "Naamw./1000", "Schrapw./1000"],
+        ["Hoofdstuk", kop("passief_pct", "Passief %"), kop("tang_pct", "Tang %"),
+         kop("naamwoordstijl_per_1000", "Naamw./1000"),
+         kop("schrapwoorden_per_1000", "Schrapw./1000")],
         [
             [
                 h.hoofdstuk.naam,
@@ -126,7 +154,9 @@ def tabellen(manuscript: Manuscript) -> dict[str, tuple[list[str], list[list[str
     )
 
     uit["dialoog"] = (
-        ["Hoofdstuk", "Dialoog %", "Conventie", "Zinslengte", "Spreiding"],
+        ["Hoofdstuk", kop("dialoog_pct", "Dialoog %"), "Conventie",
+         kop("woorden_per_zin", "Zinslengte"),
+         kop("zinslengte_spreiding", "Spreiding")],
         [
             [
                 h.hoofdstuk.naam,
@@ -159,6 +189,7 @@ def samenvatting(manuscript: Manuscript) -> list[tuple[str, str]]:
         ("Lijdende vorm gemiddeld", f"{fmt(df['passief_pct'].mean())} % van de zinnen"),
         ("Dialoogaandeel gemiddeld", f"{fmt(df['dialoog_pct'].mean())} %"),
         ("Dialoogconventie", manuscript.conventie or "geen dialoog gevonden"),
+        ("Taalmodel", manuscript.taalmodel or "onbekend"),
     ]
 
     afwijkend = manuscript.afwijkende_hoofdstukken
@@ -283,6 +314,9 @@ def schrijf_markdown(manuscript: Manuscript, map_uit: Path, grafieken: list[str]
     for sleutel, titel, blurb in teksten.SECTIES:
         koppen, rijen = tab[sleutel]
         regels += [f"## {titel}", "", blurb, "", md_tabel(koppen, rijen), ""]
+        uitleg = legenda_voor(sleutel)
+        if uitleg:
+            regels += [f"*{uitleg}*", ""]
 
     # Vindplaatsen: de voorbeelden zijn het punt, niet de percentages.
     regels += ["## Vindplaatsen", "",
@@ -314,6 +348,11 @@ def schrijf_markdown(manuscript: Manuscript, map_uit: Path, grafieken: list[str]
             "",
             f"**Wat het meet.** {maat.wat}",
             "",
+        ]
+        bereik = teksten.bereik_regel(maat.sleutel)
+        if bereik:
+            regels += [f"**Bereik en streefzone.** {bereik}", ""]
+        regels += [
             f"**Waar het vandaan komt.** {maat.bron}",
             "",
             f"**Hoe wij het berekenen.** {maat.hoe}",
@@ -457,6 +496,10 @@ def schrijf_pdf(manuscript: Manuscript, map_uit: Path, grafieken: list[Path]) ->
         verhaal.append(Paragraph(blurb, stijl_klein))
         verhaal.append(Spacer(1, 6))
         verhaal.append(tabel(koppen, rijen))
+        uitleg = legenda_voor(sleutel)
+        if uitleg:
+            verhaal.append(Spacer(1, 4))
+            verhaal.append(Paragraph(uitleg.replace("  \n", "<br/>"), stijl_klein))
 
     # Vindplaatsen
     etiketten = {
@@ -491,6 +534,11 @@ def schrijf_pdf(manuscript: Manuscript, map_uit: Path, grafieken: list[Path]) ->
         blok = [
             Paragraph(maat.naam, stijl_subkop),
             Paragraph(f"<b>Wat het meet.</b> {maat.wat}", stijl_tekst),
+        ]
+        bereik = teksten.bereik_regel(maat.sleutel)
+        if bereik:
+            blok.append(Paragraph(f"<b>Bereik en streefzone.</b> {bereik}", stijl_tekst))
+        blok += [
             Paragraph(f"<b>Waar het vandaan komt.</b> {maat.bron.replace(chr(10), '<br/>')}",
                       stijl_tekst),
             Paragraph(f"<b>Hoe wij het berekenen.</b> {maat.hoe}", stijl_tekst),
@@ -548,6 +596,7 @@ def schrijf_samenvatting_json(manuscript: Manuscript, map_uit: Path) -> Path:
         "passief_pct_gemiddeld": round(float(df["passief_pct"].mean()), 2),
         "dialoog_pct_gemiddeld": round(float(df["dialoog_pct"].mean()), 2),
         "conventie": manuscript.conventie,
+        "taalmodel": manuscript.taalmodel,
     }
     pad = map_uit / "samenvatting.json"
     pad.write_text(json.dumps(gegevens, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -580,9 +629,12 @@ def schrijf_index(wortel: Path) -> Path | None:
     if not opnames:
         return None
 
-    regels = ["# Rapporten", "", "Elke run staat in een eigen map.", "",
-              "| Run | Hoofdstukken | Woorden | Flesch-Douma | Verschil |",
-              "|---|---|---|---|---|"]
+    regels = ["# Rapporten", "",
+              "Elke run staat in een eigen map. Let bij het vergelijken op de "
+              "kolom Taalmodel: met een ander model verschuiven de stijlcijfers.",
+              "",
+              "| Run | Hoofdstukken | Woorden | Flesch-Douma | Verschil | Taalmodel |",
+              "|---|---|---|---|---|---|"]
 
     vorige = None
     for naam, gegevens in opnames:
@@ -590,7 +642,8 @@ def schrijf_index(wortel: Path) -> Path | None:
         verschil = "—" if vorige is None or score is None else f"{score - vorige:+.1f}".replace(".", ",")
         regels.append(
             f"| [{naam}]({naam}/rapport.md) | {gegevens.get('hoofdstukken', '—')} "
-            f"| {gegevens.get('woorden', '—')} | {fmt(score)} | {verschil} |"
+            f"| {gegevens.get('woorden', '—')} | {fmt(score)} | {verschil} "
+            f"| {gegevens.get('taalmodel', '—')} |"
         )
         if score is not None:
             vorige = score
