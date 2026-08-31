@@ -14,7 +14,7 @@ counter strips accented characters (`één` becomes `n`), and it applies the Eng
 > handles Dutch compounds, plus passive-voice, tangconstructie and dialogue
 > analysis.
 > 
-> Start it with `./nl/run_nl.sh`.
+> Start it with `./nl/run_nl.sh`, or `.\nl\run_nl.ps1` on Windows.
 
 ---
 
@@ -24,14 +24,37 @@ Everything runs through [uv](https://docs.astral.sh/uv/) from Astral. You do **n
 install Python or any packages yourself — uv fetches the right Python version and all
 dependencies into a local `.venv/` on first run.
 
+**macOS / Linux** — clone and run:
+
 ```bash
 git clone https://github.com/<your-user>/readability-stats.git
 cd readability-stats
 ./run.sh
 ```
 
-`run.sh` installs uv if it is missing, syncs the environment, then asks which analysis to run
-and which folder to point at.
+**Windows** — the same thing in PowerShell:
+
+```powershell
+git clone https://github.com/<your-user>/readability-stats.git
+cd readability-stats
+.\run.ps1
+```
+
+If PowerShell refuses to run the script ("running scripts is disabled on this system"), either
+run it as `powershell -ExecutionPolicy Bypass -File .\run.ps1`, or allow local scripts once
+with `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+
+> [!WARNING]
+> **The Windows runners have not been tested on Windows yet.** `run.ps1` and `nl/run_nl.ps1`
+> were written and reviewed against their bash twins, but every run so far has been on macOS.
+> If something breaks — the uv install, the folder prompt, a step that will not start — please
+> open an issue with the error text and your PowerShell version (`$PSVersionTable.PSVersion`).
+> The analysis code underneath is platform-independent and is covered by the test suite; it is
+> the runner scripts that need a real Windows machine to confirm.
+
+Both runners install uv if it is missing, sync the environment, then ask which analysis to run
+and which folder to point at. `run.ps1` is a direct translation of `run.sh` — same steps, same
+menu, same arguments.
 
 Non-interactive forms:
 
@@ -40,13 +63,25 @@ Non-interactive forms:
 ./run.sh all ~/Documents/my-book/manuscript   # every step, in order
 ```
 
+```powershell
+.\run.ps1 01 C:\Users\you\Documents\my-book\manuscript    # one step
+.\run.ps1 all C:\Users\you\Documents\my-book\manuscript   # every step, in order
+```
+
+Write Windows paths out in full rather than using `~`: PowerShell hands `~` to the script
+unexpanded, where bash would have expanded it first.
+
 ### The report
 
 Step 8 is the one to run if you want something to keep rather than something to read in the
 terminal. It runs every analysis in a single pass and writes both formats:
 
 ```bash
-./run.sh 8 ~/Documents/my-book/manuscript
+./run.sh 8 ~/Documents/my-book/manuscript                  # macOS / Linux
+```
+
+```powershell
+.\run.ps1 8 C:\Users\you\Documents\my-book\manuscript      # Windows
 ```
 
 Every run is snapshotted into its own timestamped folder and never overwrites an earlier one,
@@ -76,6 +111,10 @@ tables every snapshot with the change in word count and mean Flesch since the pr
 It is rebuilt from the `summary.json` files on every run, so deleting a snapshot folder is all
 it takes to drop it from the index.
 
+On Windows the `latest` link is only created if Developer Mode is on, since that is what lets a
+normal account make a symlink. Without it the link is quietly skipped: the timestamped folders
+and `reports/index.md` are written exactly as above, and you open the newest folder by name.
+
 To write somewhere specific instead — no timestamp, no snapshot, no index — pass a second
 argument:
 
@@ -90,10 +129,15 @@ explaining what every statistic means and what it cannot tell you.
 
 ### Running a single script directly
 
-If uv is already installed, you can skip the wrapper entirely:
+If uv is already installed, you can skip the wrapper entirely. This is identical on every
+platform apart from how the path is written:
 
 ```bash
-uv run 01_readability.py ~/Documents/my-book/manuscript
+uv run 01_readability.py ~/Documents/my-book/manuscript          # macOS / Linux
+```
+
+```powershell
+uv run 01_readability.py C:\Users\you\Documents\my-book\manuscript   # Windows
 ```
 
 `uv run` syncs the environment first, so there is no activate step and no `pip install`.
@@ -103,6 +147,11 @@ uv run 01_readability.py ~/Documents/my-book/manuscript
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh    # macOS / Linux
 brew install uv                                    # or via Homebrew
+```
+
+```powershell
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"   # Windows
+winget install --id=astral-sh.uv                            # or via winget
 ```
 
 ### Input and output
