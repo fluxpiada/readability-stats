@@ -12,5 +12,28 @@ dependencies = [
     "reportlab>=4.0",
 ]
 
+[dependency-groups]
+# Nederlandse analyse (nl/). Los van de kerndependencies, zodat de Engelse
+# scripts in de root licht blijven: uv sync --group nl
+nl = [
+    "spacy>=3.7,<4",
+    "pyphen>=0.15",
+    # Bevroren dataset (zie nl/README.md); pinnen houdt scores tussen runs vergelijkbaar.
+    "wordfreq==3.1.1",
+    "nl-core-news-sm",
+]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["nl/tests"]
+pythonpath = ["nl"]
+
 [tool.uv]
 package = false
+
+[tool.uv.sources]
+# Het spaCy-model komt niet van PyPI. De wheel-URL is reproduceerbaar en werkt
+# binnen uv; `python -m spacy download` doet dat niet.
+nl-core-news-sm = { url = "https://github.com/explosion/spacy-models/releases/download/nl_core_news_sm-3.8.0/nl_core_news_sm-3.8.0-py3-none-any.whl" }
