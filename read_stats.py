@@ -15,6 +15,166 @@ except ImportError:
 
 
 # -----------------------------------------------
+# What each number means: range, direction, target
+# -----------------------------------------------
+#
+# Without this, a figure in a report is meaningless: is 58 good, and which way
+# is up? This table says, per column, what the range is, which end is better,
+# and roughly where a novel should land.
+#
+# Two things on purpose:
+#
+# 1. Some statistics have no better end. Chapter-to-chapter deltas are not
+#    "better" when small — a change of gear may be exactly right. TTR falls
+#    automatically as a chapter grows. Those get "none" as their direction and
+#    say outright that there is no target, rather than inventing a range.
+# 2. Most target zones are ours, not published. Flesch's interpretation bands
+#    are published; "60-80 for a novel" is editorial convention. So each zone
+#    records where it came from.
+
+from typing import NamedTuple
+
+DIRECTIONS = ("higher", "lower", "none")
+SYMBOLS = {"higher": "↑", "lower": "↓", "none": "•"}
+
+NO_TARGET = "no target"
+
+
+class Metric(NamedTuple):
+    """How to read a column."""
+
+    label: str
+    span: str        # typical range, not necessarily a hard bound
+    better: str      # higher | lower | none
+    target: str      # roughly where a novel lands
+    source: str      # where that target came from
+
+    @property
+    def symbol(self) -> str:
+        return SYMBOLS[self.better]
+
+    @property
+    def has_target(self) -> bool:
+        return not self.target.startswith(NO_TARGET)
+
+
+METRICS: dict[str, Metric] = {
+    "flesch": Metric(
+        "Flesch", "0-100 (can fall outside)", "higher", "60-80",
+        "bands are Flesch's own; the fiction range is convention",
+    ),
+    "fk": Metric(
+        "FK", "1-18 (US grade)", "lower", "5-9", "convention for commercial fiction",
+    ),
+    "fog": Metric(
+        "Fog", "6-20", "lower", "6-10", "Gunning: under 12 suits a general reader",
+    ),
+    "avg_sent": Metric(
+        "Avg len", "8-25 words", "lower", "11-18", "ours",
+    ),
+    "ttr": Metric(
+        "TTR", "0-1", "higher",
+        f"{NO_TARGET} — falls automatically in longer chapters", "none",
+    ),
+    "mtld": Metric("MTLD", "10-200", "higher", "60-120", "ours"),
+    "delta": Metric(
+        "Change", "unbounded, ±", "none",
+        f"{NO_TARGET} — a change of gear can be deliberate", "none",
+    ),
+    "tightening": Metric(
+        "Score", "relative to this manuscript", "higher",
+        f"{NO_TARGET} — a running order for revision, not a measurement", "none",
+    ),
+}
+
+
+def header(key: str, label: str | None = None) -> str:
+    """Column header with its direction symbol appended."""
+    metric = METRICS.get(key)
+    if metric is None:
+        return label or key
+    return f"{label or metric.label} {metric.symbol}"
+
+
+def legend(keys) -> str:
+    """
+    One line under a table: what the symbols mean and where to aim. Only covers
+    the columns in that table, so a header can never show a symbol the legend
+    does not explain.
+    """
+    present = [k for k in keys if k in METRICS]
+    if not present:
+        return ""
+
+    used = {METRICS[k].better for k in present}
+    meaning = {
+        "higher": f"{SYMBOLS['higher']} higher is better",
+        "lower": f"{SYMBOLS['lower']} lower is better",
+        "none": f"{SYMBOLS['none']} neither end is better",
+    }
+    lines = [" · ".join(meaning[d] for d in DIRECTIONS if d in used)]
+
+    aims = [f"{METRICS[k].label} {METRICS[k].target}"
+            for k in present if METRICS[k].has_target]
+    if aims:
+        lines.append("Aim for fiction: " + " · ".join(aims))
+
+    return "\n".join(lines)
+
+
+def range_note(key: str) -> str:
+    """The range/direction/target sentence for the glossary."""
+    metric = METRICS.get(key)
+    if metric is None:
+        return ""
+    direction = {
+        "higher": "higher is better",
+        "lower": "lower is better",
+        "none": "neither end is better",
+    }[metric.better]
+    aim = (f"Aim for fiction: {metric.target} ({metric.source})."
+           if metric.has_target else f"{metric.target.capitalize()}.")
+    return f"Range {metric.span}, {direction}. {aim}"
+
+
+# -----------------------------------------------
+# Unicode font for the PDF
+# -----------------------------------------------
+
+def register_unicode_font() -> str:
+    """
+    Register DejaVuSans with reportlab and return the font name to use.
+
+    Needed because the direction arrows above are not in WinAnsi, and
+    reportlab's built-in Helvetica drops such characters *silently* — the
+    arrows would simply not appear and nothing would report an error.
+    DejaVuSans ships with matplotlib, so this costs no extra dependency.
+
+    Returns "Helvetica" if registration fails, so a report still gets written.
+    """
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    name = "DejaVuSans"
+    if name in pdfmetrics.getRegisteredFontNames():
+        return name
+
+    try:
+        import matplotlib
+        ttf = Path(matplotlib.get_data_path()) / "fonts" / "ttf"
+        pdfmetrics.registerFont(TTFont(name, str(ttf / "DejaVuSans.ttf")))
+        pdfmetrics.registerFont(TTFont(f"{name}-Bold", str(ttf / "DejaVuSans-Bold.ttf")))
+        from reportlab.lib.fonts import addMapping
+        addMapping(name, 0, 0, name)
+        addMapping(name, 1, 0, f"{name}-Bold")
+        return name
+    except Exception as exc:
+        print(f"  note: Unicode font not loaded ({exc});")
+        print("  direction arrows may be missing from the PDF.")
+        return "Helvetica"
+
+
+# -----------------------------------------------
 # Interactive folder prompt
 # -----------------------------------------------
 

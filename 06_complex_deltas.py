@@ -5,7 +5,7 @@ Usage: python 06_complex_deltas.py [folder]
 
 import sys
 import pandas as pd
-from read_stats import load_chapters, readability_metrics
+from read_stats import legend, load_chapters, readability_metrics
 
 MANUSCRIPT = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
 
@@ -34,6 +34,8 @@ def main(folder: str = MANUSCRIPT) -> None:
     df["delta_words"]  = df["words"].diff()
 
     print(df[["chapter", "delta_flesch", "delta_fog", "delta_words"]].to_string(index=False))
+    print()
+    print(legend(["delta"]))
 
 
 if __name__ == "__main__":

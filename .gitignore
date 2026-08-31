@@ -5,4 +5,8 @@ __pycache__/
 converted_txt/
 sentence_histograms/
 reports/
+report/
+.claude
+rapporten/
 .DS_Store
+nl/.taalmodel
