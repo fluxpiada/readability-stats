@@ -83,8 +83,9 @@ GLOSSARY = [
      "sometimes it is a chapter written on a different day in a different register."),
 
     (None, "Pacing curve",
-     "Flesch plotted against chapter order, with a line at 60. Dips are the dense stretches. "
-     "Long flat runs are where the texture stops changing."),
+     "Flesch plotted against chapter order, over Flesch's interpretation bands, with the "
+     "fiction target zone (60-80) outlined. Dips are the dense stretches. Long flat runs are "
+     "where the texture stops changing. Leaving the zone is not a fault — it is a question."),
 
     ("tightening", "Tightening score",
      "A composite ranking that pushes chapters which are simultaneously wordy, dense and "
@@ -282,7 +283,8 @@ def write_markdown(df, lexical, tables, folder, out_dir, chart_name) -> Path:
             parts += ["*" + note.replace("\n", "*  \n*") + "*", ""]
 
     parts += ["## Pacing curve", "",
-              "Flesch score across chapter order. The dashed line is the readable threshold (60).",
+              "Flesch score across chapter order. The shaded bands are Flesch's own; the "
+              "dashed outline is the 60-80 target zone for fiction.",
               "", f"![Pacing curve]({chart_name})", ""]
 
     parts += ["## What each statistic means", ""]
@@ -402,8 +404,8 @@ def write_pdf(df, lexical, tables, folder, out_dir, chart_path) -> Path:
         scaled_h = content_width * img_h / img_w
         story += [
             Paragraph("Pacing curve", h2),
-            Paragraph("Flesch score across chapter order. The dashed line is the readable "
-                      "threshold (60).", blurb_style),
+            Paragraph("Flesch score across chapter order. The shaded bands are Flesch's own; "
+                      "the dashed outline is the 60-80 target zone for fiction.", blurb_style),
             Image(str(chart_path), width=content_width, height=scaled_h),
         ]
 

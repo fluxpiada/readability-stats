@@ -203,8 +203,10 @@ different register.
 *Unbounded, ±. Neither end is better: a change of gear can be deliberate, so there is no
 target.*
 
-**Pacing curve** — Flesch plotted against chapter order, with a line at 60. Dips are the dense
-stretches. Long flat runs are where the texture stops changing.
+**Pacing curve** — Flesch plotted against chapter order, over Flesch's interpretation bands,
+with the 60–80 fiction target zone outlined. Dips are the dense stretches. Long flat runs are
+where the texture stops changing. There is no "pass mark" line: leaving the zone is a question
+to look at, not a fault.
 
 **Tightening score** — a composite ranking that pushes chapters that are simultaneously wordy,
 dense and low-readability to the top. It is a triage list for revision, nothing more: read the

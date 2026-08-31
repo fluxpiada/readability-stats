@@ -415,19 +415,69 @@ def tightening_score(df):
 # Pacing curve plot
 # -----------------------------------------------
 
+# Flesch's published interpretation bands, drawn as background on the chart.
+FLESCH_BANDS = [
+    (90, 100, "#e8f5e9", "very easy"),
+    (70, 90, "#f1f8e9", "easy"),
+    (60, 70, "#fffde7", "standard"),
+    (50, 60, "#fff3e0", "fairly difficult"),
+    (0, 50, "#fbe9e7", "difficult"),
+]
+
+
 def plot_pacing_curve(df, output_path: str = "pacing_curve.png") -> Path:
-    """Plot Flesch score against chapter order. Returns the written path."""
+    """
+    Plot Flesch score against chapter order. Returns the written path.
+
+    The background is Flesch's published bands, with the fiction target zone
+    (60-80) marked. There is deliberately no "readable threshold" line: 60 is
+    not a pass mark, and drawing it as one would say the opposite of what the
+    report says. It would also mislead in a second way — the aim is a *zone*,
+    so a chapter at 88 clears any 60 line while still sitting above target.
+    """
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(df["order"], df["flesch"], marker="o", linewidth=1.5)
-    ax.axhline(60, color="gray", linestyle="--", linewidth=0.8, label="Readable threshold (60)")
-    ax.set_title("Pacing Curve (Flesch Reading Ease)")
+
+    for floor, ceiling, colour, _ in FLESCH_BANDS:
+        ax.axhspan(floor, ceiling, color=colour, zorder=0)
+
+    aim_low, aim_high = 60, 80
+    ax.axhspan(aim_low, aim_high, facecolor="none", edgecolor="#90a4ae",
+               linestyle="--", linewidth=0.9, zorder=2,
+               label=f"aim for fiction ({aim_low}-{aim_high})")
+
+    ax.plot(df["order"], df["flesch"], marker="o", linewidth=1.6,
+            color="#37474f", zorder=3)
+
+    ax.set_title("Pacing curve (Flesch Reading Ease)")
     ax.set_xlabel("Chapter order")
     ax.set_ylabel("Flesch score")
-    ax.legend()
+
+    low = max(0, df["flesch"].min() - 15)
+    high = min(105, df["flesch"].max() + 15)
+    ax.set_ylim(low, high)
+    ax.grid(axis="y", alpha=0.25, zorder=1)
+
+    # Chapters are whole numbers; matplotlib would otherwise offer 0.5, 1.5, …
+    ax.set_xticks(list(df["order"]))
+
+    # Band names inside the axes, and only the ones actually visible:
+    # x in axes fraction, y in data coordinates.
+    for floor, ceiling, _, name in FLESCH_BANDS:
+        middle = (max(floor, low) + min(ceiling, high)) / 2
+        if not (low < middle < high) or min(ceiling, high) - max(floor, low) <= 4:
+            continue
+        # nudge clear of the target-zone bounds, which a midpoint can land on
+        for bound in (aim_low, aim_high):
+            if abs(middle - bound) < 2:
+                middle = bound + 3.5
+        ax.text(0.995, middle, name, transform=ax.get_yaxis_transform(),
+                fontsize=7, color="#90a4ae", va="center", ha="right", zorder=4)
+
+    ax.legend(fontsize=8, loc="lower left")
     plt.tight_layout()
     plt.savefig(output_path, dpi=150)
     plt.close(fig)
