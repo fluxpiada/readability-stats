@@ -8,14 +8,19 @@ analyseer.py — de opdrachtregel van de Nederlandse analyse.
     python nl/analyseer.py dialoog      ~/Documenten/mijn-boek
     python nl/analyseer.py woorden      ~/Documenten/mijn-boek
 
-Gemakkelijker is `./nl/run_nl.sh`, dat een menu geeft en de omgeving regelt.
+Gemakkelijker is `./nl/run_nl.sh` (Windows: `.\\nl\\run_nl.ps1`), dat een menu
+geeft en de omgeving regelt.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
+
+# Het startscript verschilt per systeem, dus de tips in de uitvoer ook.
+STARTSCRIPT = r".\nl\run_nl.ps1" if os.name == "nt" else "./nl/run_nl.sh"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -168,7 +173,7 @@ def toon_taalmodel(keuze: str | None) -> int:
         print(f"  {sleutel:3} {model.naam:20} {model.grootte:>7}  {vinkje}{actief}")
         print(f"      {model.omschrijving}")
     print()
-    print("Kiezen:  ./nl/run_nl.sh taalmodel md")
+    print(f"Kiezen:  {STARTSCRIPT} taalmodel md")
     print()
     print("Let op: de stijlcijfers (passief, tangconstructies, naamwoordstijl)")
     print("verschuiven als u van model wisselt. Runs met verschillende modellen")

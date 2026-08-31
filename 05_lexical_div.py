@@ -3,15 +3,13 @@
 Usage: python 05_lexical_div.py [folder]
 """
 
-import sys
 from read_stats import (
-    METRICS, clean_tokens, ensure_nltk_data, legend, load_chapters, mtld, ttr,
+    METRICS, clean_tokens, ensure_nltk_data, legend, load_chapters, mtld,
+    resolve_folder, ttr,
 )
 
-MANUSCRIPT = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
 
-
-def main(folder: str = MANUSCRIPT) -> None:
+def main(folder: str) -> None:
     if not ensure_nltk_data():
         print("NLTK punkt/stopwords data unavailable — cannot measure lexical diversity.")
         return
@@ -29,5 +27,5 @@ def main(folder: str = MANUSCRIPT) -> None:
 
 
 if __name__ == "__main__":
-    folder = sys.argv[1] if len(sys.argv) > 1 else MANUSCRIPT
+    folder = resolve_folder()
     main(folder)

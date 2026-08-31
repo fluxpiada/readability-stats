@@ -3,11 +3,8 @@
 Usage: python 06_complex_deltas.py [folder]
 """
 
-import sys
 import pandas as pd
-from read_stats import legend, load_chapters, readability_metrics
-
-MANUSCRIPT = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
+from read_stats import legend, load_chapters, readability_metrics, resolve_folder
 
 
 def build_dataframe(folder: str) -> pd.DataFrame:
@@ -26,7 +23,7 @@ def build_dataframe(folder: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def main(folder: str = MANUSCRIPT) -> None:
+def main(folder: str) -> None:
     df = build_dataframe(folder)
 
     df["delta_flesch"] = df["flesch"].diff()
@@ -39,5 +36,5 @@ def main(folder: str = MANUSCRIPT) -> None:
 
 
 if __name__ == "__main__":
-    folder = sys.argv[1] if len(sys.argv) > 1 else MANUSCRIPT
+    folder = resolve_folder()
     main(folder)

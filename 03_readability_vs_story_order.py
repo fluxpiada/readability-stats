@@ -3,11 +3,10 @@
 Usage: python 03_readability_vs_story_order.py [folder]
 """
 
-import sys
 import pandas as pd
-from read_stats import load_chapters, plot_pacing_curve, readability_metrics  # also sets MPLCONFIGDIR
-
-MANUSCRIPT = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
+from read_stats import (  # also sets MPLCONFIGDIR
+    load_chapters, plot_pacing_curve, readability_metrics, resolve_folder,
+)
 
 
 def build_dataframe(folder: str) -> pd.DataFrame:
@@ -27,7 +26,7 @@ def build_dataframe(folder: str) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    folder = sys.argv[1] if len(sys.argv) > 1 else MANUSCRIPT
+    folder = resolve_folder()
     df = build_dataframe(folder)
     written = plot_pacing_curve(df)
     print(f"Saved: {written.resolve()}")

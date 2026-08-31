@@ -3,8 +3,7 @@
 Usage: python 01_readability.py [folder]
 """
 
-import sys
-from read_stats import METRICS, legend, load_chapters, readability_metrics
+from read_stats import METRICS, legend, load_chapters, readability_metrics, resolve_folder
 
 # Flesch's own interpretation bands, so a bare number gets a word next to it.
 BANDS = [
@@ -19,10 +18,8 @@ def band(score: float) -> str:
             return name
     return BANDS[-1][1]
 
-MANUSCRIPT = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
 
-
-def main(folder: str = MANUSCRIPT) -> None:
+def main(folder: str) -> None:
     stats = []
     for filename, text in load_chapters(folder):
         m = readability_metrics(text)
@@ -59,5 +56,5 @@ def main(folder: str = MANUSCRIPT) -> None:
 
 
 if __name__ == "__main__":
-    folder = sys.argv[1] if len(sys.argv) > 1 else MANUSCRIPT
+    folder = resolve_folder()
     main(folder)

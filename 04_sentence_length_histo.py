@@ -3,15 +3,12 @@
 Usage: python 04_sentence_length_histo.py [folder]
 """
 
-import sys
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import nltk
 from pathlib import Path
-from read_stats import load_chapters  # also sets MPLCONFIGDIR
-
-MANUSCRIPT = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
+from read_stats import load_chapters, resolve_folder  # also sets MPLCONFIGDIR
 
 # Download punkt tokenizer if not already present
 nltk.download("punkt", quiet=True)
@@ -47,5 +44,5 @@ def plot_histograms(folder: str) -> None:
 
 
 if __name__ == "__main__":
-    folder = sys.argv[1] if len(sys.argv) > 1 else MANUSCRIPT
+    folder = resolve_folder()
     plot_histograms(folder)

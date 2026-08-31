@@ -20,13 +20,36 @@ Deze versie deelt daar niets mee.
 
 ## Snel starten
 
+Op **macOS of Linux**, in de Terminal:
+
 ```bash
 ./nl/run_nl.sh
 ```
 
-Dat geeft een menu en vraagt om de map met uw tekst. U kunt de map vanuit Finder
-op het terminalvenster slepen. De eerste keer wordt ongeveer 100 MB opgehaald
-(het Nederlandse taalmodel); daarna draait alles offline.
+Op **Windows**, in PowerShell:
+
+```powershell
+.\nl\run_nl.ps1
+```
+
+Weigert PowerShell het script ("kan niet worden geladen omdat het uitvoeren van
+scripts is uitgeschakeld"), start het dan als
+`powershell -ExecutionPolicy Bypass -File .\nl\run_nl.ps1`, of sta lokale
+scripts eenmalig toe met `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+
+> **De Windows-scripts zijn nog niet op Windows getest.** `run.ps1` en
+> `nl/run_nl.ps1` zijn geschreven en nagelopen naast hun bash-tegenhangers, maar
+> alle runs tot nu toe waren op macOS. Loopt er iets mis — het installeren van
+> uv, de vraag om de map, een stap die niet start — meld het dan met de
+> foutmelding erbij en uw PowerShell-versie (`$PSVersionTable.PSVersion`). De
+> analyse zelf is systeemonafhankelijk en wordt door de tests gedekt; het zijn de
+> startscripts die nog op een echte Windows-machine bevestigd moeten worden.
+
+Dat geeft een menu en vraagt om de map met uw tekst. Op macOS kunt u de map
+vanuit Finder op het terminalvenster slepen; op Windows klikt u in Verkenner met
+Shift+rechtermuisknop op de map, kiest u "Als pad kopiëren" en plakt u dat in het
+venster. De eerste keer wordt ongeveer 100 MB opgehaald (het Nederlandse
+taalmodel); daarna draait alles offline.
 
 Rechtstreeks kan ook:
 
@@ -40,6 +63,22 @@ Rechtstreeks kan ook:
 # eigen uitvoermap voor het rapport
 ./nl/run_nl.sh rapport ~/Documenten/mijn-boek ~/Bureaublad/voor-mijn-redacteur
 ```
+
+En op Windows, met hetzelfde effect:
+
+```powershell
+.\nl\run_nl.ps1 rapport      C:\Users\u\Documenten\mijn-boek
+.\nl\run_nl.ps1 leesbaarheid C:\Users\u\Documenten\mijn-boek
+.\nl\run_nl.ps1 stijl        C:\Users\u\Documenten\mijn-boek
+.\nl\run_nl.ps1 dialoog      C:\Users\u\Documenten\mijn-boek
+.\nl\run_nl.ps1 woorden      C:\Users\u\Documenten\mijn-boek
+
+# eigen uitvoermap voor het rapport
+.\nl\run_nl.ps1 rapport C:\Users\u\Documenten\mijn-boek C:\Users\u\Bureaublad\voor-mijn-redacteur
+```
+
+Schrijf een Windows-pad voluit en gebruik dus geen `~`: PowerShell geeft die
+tilde onbewerkt door, waar bash hem eerst zou hebben vervangen.
 
 Zonder uitvoermap komt het rapport in een momentopname te staan:
 
@@ -56,6 +95,12 @@ rapporten/
 ```
 
 Zo kunt u na een revisieronde zien wat er is veranderd.
+
+Op Windows wordt de snelkoppeling `laatste` alleen gemaakt als de
+ontwikkelaarsmodus aanstaat — die bepaalt of een gewoon account een symbolische
+koppeling mag maken. Staat hij uit, dan wordt de koppeling stilletjes
+overgeslagen: de mappen met datum en tijd en `rapporten/index.md` komen er
+gewoon, en u opent de nieuwste map op naam.
 
 ---
 
@@ -543,7 +588,7 @@ Alles wat een keuze is in plaats van een bron, staat op één plek.
 | Lichte werkwoorden (naamwoordstijl) | `leesbaarheid/stijl.py` → `LICHTE_WERKWOORDEN` | doen, maken, geven … |
 | Bereiken en streefzones | `leesbaarheid/teksten.py` → `BEREIKEN` | zie tabel boven |
 | Alle Nederlandse rapportteksten | `leesbaarheid/teksten.py` | — |
-| Taalmodel | `./nl/run_nl.sh taalmodel` | `nl_core_news_sm` |
+| Taalmodel | `./nl/run_nl.sh taalmodel` (Windows: `.\nl\run_nl.ps1 taalmodel`) | `nl_core_news_sm` |
 
 De schrapwoordenlijst is nadrukkelijk bedoeld om aan te passen: het is uw stem,
 niet die van een taaladviseur. Staat er een woord in dat u bewust gebruikt,
@@ -561,6 +606,11 @@ foutloos is. Een groter model herkent ingewikkelde zinnen beter.
 ./nl/run_nl.sh taalmodel md     # kiezen, en desgewenst meteen ophalen
 ```
 
+```powershell
+.\nl\run_nl.ps1 taalmodel       # op Windows, met dezelfde vragen
+.\nl\run_nl.ps1 taalmodel md
+```
+
 | Model | Download | Waarvoor |
 |---|---|---|
 | `nl_core_news_sm` | 12 MB | standaard; snel en voor de meeste teksten prima |
@@ -575,6 +625,16 @@ De keuze wordt onthouden voor volgende runs. Eenmalig afwijken kan ook:
 ```bash
 uv run --group nl python nl/analyseer.py stijl ~/Documenten/mijn-boek --model md
 RS_SPACY_MODEL=nl_core_news_md ./nl/run_nl.sh stijl ~/Documenten/mijn-boek
+```
+
+In PowerShell kan een omgevingsvariabele niet vóór de opdracht op dezelfde regel;
+u zet hem eerst, en dan geldt hij voor de rest van het venster:
+
+```powershell
+uv run --group nl python nl/analyseer.py stijl C:\Users\u\Documenten\mijn-boek --model md
+
+$env:RS_SPACY_MODEL = "nl_core_news_md"
+.\nl\run_nl.ps1 stijl C:\Users\u\Documenten\mijn-boek
 ```
 
 > **Let op bij het vergelijken van runs.** De stijlpercentages verschuiven als u
@@ -596,6 +656,9 @@ uv sync --group nl --group dev
 uv run pytest                       # 198 tests
 uv run pytest nl/tests/test_lettergrepen.py -v
 ```
+
+Deze drie werken op Windows onveranderd; alleen het startscript verschilt
+(`.\nl\run_nl.ps1` in plaats van `./nl/run_nl.sh`).
 
 De testopstelling in `tests/fixtures/` is een klein Nederlands
 voorbeeldmanuscript van vier hoofdstukken, waarin de constructies met opzet zijn

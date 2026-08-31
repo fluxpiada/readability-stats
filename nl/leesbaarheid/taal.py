@@ -30,6 +30,9 @@ _geladen_model: str | None = None
 
 STANDAARDMODEL = "nl_core_news_sm"
 
+# Het startscript verschilt per systeem, dus de tips in de foutmeldingen ook.
+STARTSCRIPT = r".\nl\run_nl.ps1" if os.name == "nt" else "./nl/run_nl.sh"
+
 # De modelversie moet met de spaCy-minor meebewegen; staat ook zo in pyproject.toml.
 MODELVERSIE = "3.8.0"
 
@@ -173,7 +176,7 @@ def haal_nlp(model_naam: str | None = None):
         else:
             melding.append("Installeer het met:")
             melding.append(f"  {installatieopdracht(naam)}")
-            melding.append("of kies een ander model:  ./nl/run_nl.sh taalmodel sm")
+            melding.append(f"of kies een ander model:  {STARTSCRIPT} taalmodel sm")
         melding.append(f"(oorspronkelijke fout: {fout})")
         raise SystemExit("\n".join(melding)) from fout
 

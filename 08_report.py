@@ -26,11 +26,11 @@ from read_stats import (
     range_note,
     readability_metrics,
     register_unicode_font,
+    resolve_folder,
     tightening_score,
     ttr,
 )
 
-MANUSCRIPT  = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
 REPORTS_DIR = "reports"
 
 # Publishing conventions for the page estimate.
@@ -507,7 +507,7 @@ def write_index(root: Path) -> Path | None:
 
 # -----------------------------------------------
 
-def main(folder: str = MANUSCRIPT, output_dir: str | None = None) -> None:
+def main(folder: str, output_dir: str | None = None) -> None:
     snapshot = output_dir is None
     root = Path(REPORTS_DIR)
     out_dir = new_snapshot_dir(root) if snapshot else Path(output_dir)
@@ -541,6 +541,6 @@ def main(folder: str = MANUSCRIPT, output_dir: str | None = None) -> None:
 
 
 if __name__ == "__main__":
-    folder     = sys.argv[1] if len(sys.argv) > 1 else MANUSCRIPT
+    folder     = resolve_folder()
     output_dir = sys.argv[2] if len(sys.argv) > 2 else None
     main(folder, output_dir)

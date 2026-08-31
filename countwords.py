@@ -3,13 +3,10 @@ countwords.py — total word count across all .md and .docx files in a folder.
 Usage: python countwords.py [folder]
 """
 
-import sys
-from read_stats import load_chapters, readability_metrics
-
-MANUSCRIPT = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
+from read_stats import load_chapters, readability_metrics, resolve_folder
 
 
-def main(folder: str = MANUSCRIPT) -> None:
+def main(folder: str) -> None:
     chapters = load_chapters(folder)
     total = 0
     for filename, text in chapters:
@@ -22,5 +19,5 @@ def main(folder: str = MANUSCRIPT) -> None:
 
 
 if __name__ == "__main__":
-    folder = sys.argv[1] if len(sys.argv) > 1 else MANUSCRIPT
+    folder = resolve_folder()
     main(folder)

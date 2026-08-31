@@ -5,13 +5,12 @@ Usage: python 02_convert_md_txt.py [folder] [output_dir]
 
 import sys
 from pathlib import Path
-from read_stats import load_chapters
+from read_stats import load_chapters, resolve_folder
 
-MANUSCRIPT  = "/Users/flofonic/Documents/Blackout/blackout/manuscript"
 OUTPUT_DIR  = "converted_txt"
 
 
-def write_plaintext_chapters(folder: str = MANUSCRIPT, output_dir: str = OUTPUT_DIR) -> None:
+def write_plaintext_chapters(folder: str, output_dir: str = OUTPUT_DIR) -> None:
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -25,6 +24,6 @@ def write_plaintext_chapters(folder: str = MANUSCRIPT, output_dir: str = OUTPUT_
 
 
 if __name__ == "__main__":
-    folder     = sys.argv[1] if len(sys.argv) > 1 else MANUSCRIPT
+    folder     = resolve_folder()
     output_dir = sys.argv[2] if len(sys.argv) > 2 else OUTPUT_DIR
     write_plaintext_chapters(folder, output_dir)
