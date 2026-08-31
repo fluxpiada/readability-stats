@@ -23,7 +23,10 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 # --- 2. sync the environment (downloads Python 3.12 if needed) --------------
-uv sync --quiet
+# --inexact: this venv is shared with nl/, where a larger spaCy model may have
+# been installed by hand. A plain `uv sync` matches uv.lock exactly and would
+# throw that model straight back out.
+uv sync --quiet --inexact
 
 # --- 3. figure out what to run ----------------------------------------------
 STEPS=(

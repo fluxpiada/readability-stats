@@ -25,8 +25,14 @@ fi
 # --- 2. omgeving klaarzetten -------------------------------------------------
 # De groep 'nl' bevat spaCy, het Nederlandse taalmodel, pyphen en wordfreq.
 # De eerste keer duurt dit even: er wordt ongeveer 100 MB opgehaald.
+#
+# --inexact is hier wezenlijk: zonder die vlag maakt `uv sync` de omgeving
+# precies gelijk aan uv.lock en gooit het dus alles eruit wat daar niet in staat.
+# De modellen md en lg worden met `uv pip install` opgehaald en staan niet in de
+# lock, dus die werden bij de volgende start weer verwijderd — het model was dan
+# "opgehaald" maar meteen weer weg.
 echo "Omgeving controleren ..."
-uv sync --quiet --group nl
+uv sync --quiet --inexact --group nl
 
 OPDRACHTEN=(rapport leesbaarheid stijl dialoog woorden taalmodel)
 

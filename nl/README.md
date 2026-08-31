@@ -10,6 +10,15 @@ aan te pas dat een oordeel velt, en er gaat geen letter van uw manuscript het
 internet op — alles wordt op uw eigen computer berekend. Wat u krijgt is een
 telling, geen mening.
 
+Wel wordt uw tekst grammaticaal ontleed, en dat gebeurt met een taalmodel van
+spaCy: het herkent woordsoorten en zinsdelen, zodat de stijlanalyse — lijdende
+vorm, tangconstructies, naamwoordstijl — niet op zoekpatronen hoeft te steunen.
+Het oordeelt niet, het ontleedt. Standaard is dat het kleine model
+(`nl_core_news_sm`), dat goed werkt maar bij ingewikkelde zinnen niet helemaal
+accuraat is. U kunt een nauwkeuriger model kiezen met de opdracht `taalmodel` —
+er zijn er drie, van 12 MB tot 541 MB. Zie
+[Een nauwkeuriger taalmodel](#een-nauwkeuriger-taalmodel).
+
 Dit is de Nederlandse tegenhanger van de Engelse scripts in de hoofdmap. Die
 gebruiken Flesch, Flesch-Kincaid en Gunning Fog, en die zijn alle drie op het
 Engels geijkt — met een lettergreepteller die `één` tot `n` reduceert en de
@@ -95,6 +104,24 @@ rapporten/
 ```
 
 Zo kunt u na een revisieronde zien wat er is veranderd.
+
+### Een voorbeeldrapport
+
+Wilt u eerst zien wat eruit komt: [`voorbeeld/rapport.pdf`](voorbeeld/rapport.pdf)
+is een volledig rapport, gemaakt over het voorbeeldmanuscript in
+`nl/tests/fixtures` — vier korte hoofdstukken waarin de constructies met opzet
+zijn ingebouwd. Alle onderdelen zitten erin: de samenvatting, de tabellen per
+hoofdstuk, de grafieken en de uitleg per maat.
+
+GitHub toont een PDF niet in de pagina zelf; klik hem aan om hem te openen of te
+downloaden. Zelf opnieuw maken kan met:
+
+```bash
+./nl/run_nl.sh rapport nl/tests/fixtures nl/voorbeeld
+```
+
+De cijfers zijn die van een testtekst van nog geen 500 woorden, dus lees ze als
+een demonstratie van de vorm, niet als een maatstaf voor een echt manuscript.
 
 Op Windows wordt de snelkoppeling `laatste` alleen gemaakt als de
 ontwikkelaarsmodus aanstaat — die bepaalt of een gewoon account een symbolische
@@ -646,6 +673,13 @@ $env:RS_SPACY_MODEL = "nl_core_news_md"
 Installeren gebeurt met `uv pip install` en een vastgepinde wheel-URL, niet met
 `python -m spacy download`: die laatste roept pip aan, en een door uv beheerde
 omgeving heeft geen pip.
+
+Omdat `md` en `lg` zo buiten `uv.lock` om worden geïnstalleerd, draaien de
+startscripts hun `uv sync` met `--inexact`. Zonder die vlag maakt uv de omgeving
+precies gelijk aan de lock en verwijdert het het model weer bij de eerstvolgende
+start — dan lijkt het opgehaald, maar is het meteen weer weg. Merkt u dat een
+model na installatie toch niet gevonden wordt, dan is er ergens een `uv sync`
+zonder `--inexact` overheen gegaan; haal het model dan opnieuw op.
 
 ---
 
