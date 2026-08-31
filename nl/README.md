@@ -656,6 +656,13 @@ Installeren gebeurt met `uv pip install` en een vastgepinde wheel-URL, niet met
 `python -m spacy download`: die laatste roept pip aan, en een door uv beheerde
 omgeving heeft geen pip.
 
+Omdat `md` en `lg` zo buiten `uv.lock` om worden geïnstalleerd, draaien de
+startscripts hun `uv sync` met `--inexact`. Zonder die vlag maakt uv de omgeving
+precies gelijk aan de lock en verwijdert het het model weer bij de eerstvolgende
+start — dan lijkt het opgehaald, maar is het meteen weer weg. Merkt u dat een
+model na installatie toch niet gevonden wordt, dan is er ergens een `uv sync`
+zonder `--inexact` overheen gegaan; haal het model dan opnieuw op.
+
 ---
 
 ## Ontwikkelen
