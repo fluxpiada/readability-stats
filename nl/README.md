@@ -10,6 +10,15 @@ aan te pas dat een oordeel velt, en er gaat geen letter van uw manuscript het
 internet op — alles wordt op uw eigen computer berekend. Wat u krijgt is een
 telling, geen mening.
 
+Wel wordt uw tekst grammaticaal ontleed, en dat gebeurt met een taalmodel van
+spaCy: het herkent woordsoorten en zinsdelen, zodat de stijlanalyse — lijdende
+vorm, tangconstructies, naamwoordstijl — niet op zoekpatronen hoeft te steunen.
+Het oordeelt niet, het ontleedt. Standaard is dat het kleine model
+(`nl_core_news_sm`), dat goed werkt maar bij ingewikkelde zinnen niet helemaal
+accuraat is. U kunt een nauwkeuriger model kiezen met de opdracht `taalmodel` —
+er zijn er drie, van 12 MB tot 541 MB. Zie
+[Een nauwkeuriger taalmodel](#een-nauwkeuriger-taalmodel).
+
 Dit is de Nederlandse tegenhanger van de Engelse scripts in de hoofdmap. Die
 gebruiken Flesch, Flesch-Kincaid en Gunning Fog, en die zijn alle drie op het
 Engels geijkt — met een lettergreepteller die `één` tot `n` reduceert en de
