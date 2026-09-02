@@ -18,6 +18,8 @@ accuraat is. U kunt een nauwkeuriger model kiezen met de opdracht `taalmodel` �
 er zijn er drie, van 12 MB tot 541 MB. Zie
 [Een nauwkeuriger taalmodel](#een-nauwkeuriger-taalmodel).
 
+Bekijk hier een [voorbeeldanalyse](/files/rapport_pietje_bell.pdf) (van _De Vlegeljaren van Pietje Bell_ Christiaan van Abkoude, 1914).
+
 Dit is de Nederlandse tegenhanger van de Engelse scripts in de hoofdmap. Die
 gebruiken Flesch, Flesch-Kincaid en Gunning Fog, en die zijn alle drie op het
 Engels geijkt — met een lettergreepteller die `één` tot `n` reduceert en de
