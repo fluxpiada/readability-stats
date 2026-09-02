@@ -90,17 +90,14 @@ class Stijl:
 
     passief_zinnen: int
     passief_pct: float
-    passief_zonder_agens: int
 
     naamwoordstijl: int
     naamwoordstijl_per_1000: float
 
-    tang_zinnen: int
     tang_pct: float
 
     schrapwoorden: int
     schrapwoorden_per_1000: float
-    schrapwoord_telling: dict[str, int] = field(default_factory=dict)
 
     voorbeelden: dict[str, list[Vindplaats]] = field(default_factory=dict)
 
@@ -145,23 +142,24 @@ def heeft_agens(zin) -> bool:
     return False
 
 
+# Alleen de relaties die Onze Taal en Taaladvies.net noemen tellen mee.
+_TANGRELATIES = {
+    "compound:prt": "scheidbaar werkwoord",
+    "aux": "hulpwerkwoord en hoofdwerkwoord",
+    "aux:pass": "hulpwerkwoord en hoofdwerkwoord",
+    "det": "lidwoord en zelfstandig naamwoord",
+}
+
+
 def tangconstructie(zin) -> tuple[int, str] | None:
     """
     Grootste afstand tussen bij elkaar horende zinsdelen, als die te groot is.
 
-    Geeft (afstand, omschrijving) terug, of None. Alleen de drie relaties die
-    Onze Taal en Taaladvies.net noemen tellen mee.
+    Geeft (afstand, omschrijving) terug, of None.
     """
-    relaties = {
-        "compound:prt": "scheidbaar werkwoord",
-        "aux": "hulpwerkwoord en hoofdwerkwoord",
-        "aux:pass": "hulpwerkwoord en hoofdwerkwoord",
-        "det": "lidwoord en zelfstandig naamwoord",
-    }
-
     ergste: tuple[int, str] | None = None
     for token in zin:
-        soort = relaties.get(token.dep_)
+        soort = _TANGRELATIES.get(token.dep_)
         if soort is None:
             continue
         afstand = abs(token.i - token.head.i)
@@ -206,13 +204,20 @@ def schrapwoorden_in(zin) -> list[str]:
 # Per hoofdstuk
 # ---------------------------------------------------------------
 
-def analyseer(doc, voorbeelden_per_soort: int = 8) -> Stijl:
-    """Alle stijlmaten voor één ontleed hoofdstuk."""
-    zinnen = zinlijst(doc)
-    aantal_zinnen = len(zinnen)
-    aantal_woorden = len(woordtokens(doc))
+def analyseer(doc, voorbeelden_per_soort: int = 8, zinnen=None, aantal_woorden=None) -> Stijl:
+    """
+    Alle stijlmaten voor één ontleed hoofdstuk.
 
-    passief = zonder_agens = tang = 0
+    *zinnen* en *aantal_woorden* mogen meekomen als de aanroeper die al heeft:
+    `is_woord` draait dan niet nog een keer over elk token van het hoofdstuk.
+    """
+    if zinnen is None:
+        zinnen = zinlijst(doc)
+    if aantal_woorden is None:
+        aantal_woorden = len(woordtokens(doc))
+    aantal_zinnen = len(zinnen)
+
+    passief = tang = 0
     nominalisaties = 0
     telling: dict[str, int] = {}
     voorbeelden: dict[str, list[Vindplaats]] = {
@@ -225,10 +230,10 @@ def analyseer(doc, voorbeelden_per_soort: int = 8) -> Stijl:
     for zin in zinnen:
         if is_passief(zin):
             passief += 1
-            agens = heeft_agens(zin)
-            if not agens:
-                zonder_agens += 1
+            # heeft_agens loopt de hele zin langs en is alleen nodig voor de
+            # omschrijving bij een voorbeeld, niet voor een telling.
             if len(voorbeelden["passief"]) < voorbeelden_per_soort:
+                agens = heeft_agens(zin)
                 voorbeelden["passief"].append(
                     Vindplaats(
                         _kort(zin),
@@ -268,13 +273,10 @@ def analyseer(doc, voorbeelden_per_soort: int = 8) -> Stijl:
         woorden=aantal_woorden,
         passief_zinnen=passief,
         passief_pct=(100 * passief / aantal_zinnen) if aantal_zinnen else 0.0,
-        passief_zonder_agens=zonder_agens,
         naamwoordstijl=nominalisaties,
         naamwoordstijl_per_1000=per_duizend(nominalisaties),
-        tang_zinnen=tang,
         tang_pct=(100 * tang / aantal_zinnen) if aantal_zinnen else 0.0,
         schrapwoorden=totaal_schrap,
         schrapwoorden_per_1000=per_duizend(totaal_schrap),
-        schrapwoord_telling=dict(sorted(telling.items(), key=lambda p: -p[1])),
         voorbeelden=voorbeelden,
     )

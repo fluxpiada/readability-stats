@@ -23,9 +23,9 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 # --- 2. sync the environment (downloads Python 3.12 if needed) --------------
-# --inexact: this venv is shared with nl/, where a larger spaCy model may have
-# been installed by hand. A plain `uv sync` matches uv.lock exactly and would
-# throw that model straight back out.
+# --inexact: this venv is shared with nl/, which may have a larger spaCy model
+# installed from the nl-md or nl-lg group. A sync is exact about the groups it
+# is given, so without this flag it would uninstall that model every run.
 uv sync --quiet --inexact
 
 # --- 3. figure out what to run ----------------------------------------------
@@ -53,7 +53,7 @@ if [ -z "$choice" ]; then
     done
     echo "  a) all of the above"
     echo
-    read -r -p "Choose [1-9 or a]: " choice
+    read -r -p "Choose [1-${#STEPS[@]} or a]: " choice
 fi
 
 if [ -z "$folder" ]; then
@@ -87,12 +87,18 @@ case "$choice" in
     a | all | A)
         for s in "${STEPS[@]}"; do run_step "$s"; done
         ;;
-    [1-9] | 0[1-9])
+    # The step list is the bound, so adding a tenth step needs no edit here.
+    # 10# forces base 10: a leading zero would otherwise read as octal.
+    [0-9] | [0-9][0-9])
         idx=$((10#$choice - 1))
+        if [ "$idx" -lt 0 ] || [ "$idx" -ge "${#STEPS[@]}" ]; then
+            echo "Unknown choice: $choice (expected 1-${#STEPS[@]} or 'all')"
+            exit 1
+        fi
         run_step "${STEPS[$idx]}"
         ;;
     *)
-        echo "Unknown choice: $choice (expected 1-9 or 'all')"
+        echo "Unknown choice: $choice (expected 1-${#STEPS[@]} or 'all')"
         exit 1
         ;;
 esac

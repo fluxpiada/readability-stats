@@ -41,25 +41,43 @@ def test_no_direction_means_no_target(key, metric):
 
 def test_every_table_column_has_a_metric():
     """Catches: someone adds a column and forgets the metadata."""
-    for table, keys in report.TABLE_KEYS.items():
-        for key in keys:
-            assert key in read_stats.METRICS, (
-                f"column '{key}' in table '{table}' has no metric entry"
+    for section in report.SECTIONS:
+        for column in section.columns:
+            if column.metric is None:
+                continue
+            assert column.metric in read_stats.METRICS, (
+                f"column '{column.field}' in table '{section.key}' has no metric entry"
             )
 
 
 def test_every_table_has_a_legend():
-    for table in report.TABLE_KEYS:
-        assert report.table_legend(table).strip()
+    for section in report.SECTIONS:
+        assert report.table_legend(section.key).strip()
 
 
 def test_legend_explains_every_symbol_it_shows():
-    for table, keys in report.TABLE_KEYS.items():
-        text = report.table_legend(table)
-        for key in keys:
-            symbol = read_stats.METRICS[key].symbol
+    for section in report.SECTIONS:
+        text = report.table_legend(section.key)
+        for column in section.columns:
+            if column.metric is None:
+                continue
+            symbol = read_stats.METRICS[column.metric].symbol
             assert symbol in text, (
-                f"symbol {symbol} for '{key}' missing from the '{table}' legend"
+                f"symbol {symbol} for '{column.field}' missing from "
+                f"the '{section.key}' legend"
+            )
+
+
+def test_every_column_names_a_real_dataframe_field():
+    """Catches: a column spec that points at a field chapter_frame never builds."""
+    import inspect
+
+    source = inspect.getsource(read_stats.chapter_frame)
+    for section in report.SECTIONS:
+        for column in section.columns:
+            assert f'"{column.field}"' in source, (
+                f"column '{column.field}' in table '{section.key}' "
+                "is not a column chapter_frame produces"
             )
 
 

@@ -46,31 +46,36 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
 # De groep 'nl' bevat spaCy, het Nederlandse taalmodel, pyphen en wordfreq.
 # De eerste keer duurt dit even: er wordt ongeveer 100 MB opgehaald.
 #
-# --inexact is hier wezenlijk: zonder die vlag maakt `uv sync` de omgeving
-# precies gelijk aan uv.lock en gooit het dus alles eruit wat daar niet in staat.
-# De modellen md en lg worden met `uv pip install` opgehaald en staan niet in de
-# lock, dus die werden bij de volgende start weer verwijderd — het model was dan
-# "opgehaald" maar meteen weer weg.
+# --inexact: een sync maakt de omgeving precies gelijk aan de genoemde groepen.
+# De grotere modellen md en lg staan in hun eigen groep (nl-md, nl-lg), dus
+# zonder deze vlag zou elke start het gekozen model weer verwijderen.
 Write-Host "Omgeving controleren ..."
 uv sync --quiet --inexact --group nl
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$Opdrachten = @("rapport", "leesbaarheid", "stijl", "dialoog", "woorden", "taalmodel")
+# Eén lijst: naam en omschrijving samen, zodat het menu en wat er draait niet
+# uit elkaar kunnen lopen.
+$Opdrachten = @(
+    @{ naam = "rapport";      uitleg = "volledig rapport (markdown + PDF + grafieken)" }
+    @{ naam = "leesbaarheid"; uitleg = "Flesch-Douma en Leesindex A per hoofdstuk" }
+    @{ naam = "stijl";        uitleg = "lijdende vorm, tangconstructies, schrapwoorden" }
+    @{ naam = "dialoog";      uitleg = "dialoogaandeel, consistentie en tempo" }
+    @{ naam = "woorden";      uitleg = "moeilijke woorden en woordvariatie" }
+    @{ naam = "taalmodel";    uitleg = "nauwkeuriger taalmodel kiezen of installeren" }
+)
 
 if (-not $Opdracht) {
     Write-Host ""
     Write-Host "Nederlandse leesbaarheidsanalyse"
     Write-Host "--------------------------------"
-    Write-Host "  1) rapport       volledig rapport (markdown + PDF + grafieken)"
-    Write-Host "  2) leesbaarheid  Flesch-Douma en Leesindex A per hoofdstuk"
-    Write-Host "  3) stijl         lijdende vorm, tangconstructies, schrapwoorden"
-    Write-Host "  4) dialoog       dialoogaandeel, consistentie en tempo"
-    Write-Host "  5) woorden       moeilijke woorden en woordvariatie"
-    Write-Host "  6) taalmodel     nauwkeuriger taalmodel kiezen of installeren"
+    for ($i = 0; $i -lt $Opdrachten.Count; $i++) {
+        Write-Host ("  {0}) {1,-13} {2}" -f ($i + 1), $Opdrachten[$i].naam, $Opdrachten[$i].uitleg)
+    }
     Write-Host ""
-    $keuze = Read-Host "Kies [1-6]"
-    if ($keuze -match '^[1-6]$') {
-        $Opdracht = $Opdrachten[[int]$keuze - 1]
+    $keuze = Read-Host "Kies [1-$($Opdrachten.Count)]"
+    $nummer = 0
+    if ([int]::TryParse($keuze, [ref]$nummer) -and $nummer -ge 1 -and $nummer -le $Opdrachten.Count) {
+        $Opdracht = $Opdrachten[$nummer - 1].naam
     } else {
         Write-Host "Onbekende keuze: $keuze"
         exit 1
@@ -88,29 +93,10 @@ if ($Opdracht -eq "taalmodel") {
         $model = $Map
     }
 
-    uv run --group nl python nl/analyseer.py taalmodel $model
-    if ($LASTEXITCODE -ne 0) { exit 1 }
-
-    # Ophalen als het er nog niet is. `python -m spacy download` werkt hier niet:
-    # dat roept pip aan, en een door uv beheerde omgeving heeft geen pip.
-    # Eén regel Python, zodat PowerShell niets aan de aanhalingstekens verandert.
-    $probe = "import sys; sys.path.insert(0, 'nl'); from leesbaarheid import taal; " +
-             "naam = taal._volledige_naam('$model'); " +
-             "print('' if taal.is_geinstalleerd(naam) else taal.MODELLEN[taal.MODEL_PER_NAAM[naam]].wheel)"
-    $wheel = (uv run --group nl python -c $probe | Out-String).Trim()
-
-    if ($wheel) {
-        Write-Host ""
-        $ja = Read-Host "Het model is nog niet geïnstalleerd. Nu ophalen? [J/n]"
-        if (-not $ja) { $ja = "J" }
-        if ($ja -match '^[JjYy]') {
-            uv pip install $wheel
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-        } else {
-            Write-Host "Overgeslagen. Later zelf: uv pip install $wheel"
-        }
-    }
-    exit 0
+    # --installeer haalt het model op als het er nog niet is. Welke groep
+    # daarvoor nodig is weet analyseer.py; dit script hoeft dat niet te weten.
+    uv run --group nl python nl/analyseer.py taalmodel $model --installeer
+    exit $LASTEXITCODE
 }
 
 if (-not $Map) {

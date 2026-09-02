@@ -29,22 +29,15 @@ import re
 import statistics
 from dataclasses import dataclass, field
 
-from .taal import is_woord
-
-# De conventies die in Nederlands proza voorkomen. Volgorde doet er niet toe;
-# we tellen welke het manuscript zelf het meest gebruikt.
-CONVENTIES = {
-    "enkele aanhalingstekens": ("'", "'"),
-    "dubbele aanhalingstekens": ("“", "”"),
-    "rechte dubbele aanhalingstekens": ('"', '"'),
-    "lage aanhalingstekens": ("„", "”"),
-    "guillemets": ("«", "»"),
-}
+from .lettergrepen import _LETTERS
+from .taal import is_woord, zinnen
 
 # Een dialoogstreepje aan het begin van een alinea. Dit is waarom `tekst.py`
 # regelbeginstreepjes niet als opsommingsteken wegstript.
 _STREEPJE = re.compile(r"^\s*[—–-]\s+\S")
 
+# De conventies die in Nederlands proza voorkomen. Volgorde doet er niet toe;
+# we tellen welke het manuscript zelf het meest gebruikt.
 _OPENERS = {
     "enkele aanhalingstekens": re.compile(r"(?<![\w])'(?=\w)"),
     "dubbele aanhalingstekens": re.compile(r"“"),
@@ -59,9 +52,8 @@ class Dialoog:
     alineas: int
     dialoogalineas: int
     dialoog_pct: float                 # aandeel woorden in dialoog
-    gemiddelde_dialoogregel: float
     conventie: str | None              # de conventie van dít hoofdstuk
-    conventies_gevonden: dict[str, int] = field(default_factory=dict)
+    telling: dict[str, int] = field(default_factory=dict)   # per conventie, hoe vaak
     wijkt_af: bool = False             # ten opzichte van de rest van het manuscript
 
 
@@ -88,15 +80,19 @@ def tel_conventies(tekst: str) -> dict[str, int]:
     return {naam: n for naam, n in telling.items() if n}
 
 
-def dominante_conventie(tekst: str) -> str | None:
-    """De conventie die dit manuscript het vaakst gebruikt, of None."""
-    telling = tel_conventies(tekst)
+def sterkste_conventie(telling: dict[str, int]) -> str | None:
+    """De conventie die het vaakst voorkomt in *telling*, of None."""
     if not telling:
         return None
     return max(telling.items(), key=lambda p: p[1])[0]
 
 
-def is_dialoogalinea(alinea: str, conventie: str | None = None) -> bool:
+def dominante_conventie(tekst: str) -> str | None:
+    """De conventie die deze tekst het vaakst gebruikt, of None."""
+    return sterkste_conventie(tel_conventies(tekst))
+
+
+def is_dialoogalinea(alinea: str) -> bool:
     """
     Is deze alinea dialoog?
 
@@ -109,13 +105,13 @@ def is_dialoogalinea(alinea: str, conventie: str | None = None) -> bool:
     """
     if _STREEPJE.match(alinea):
         return True
-    if conventie and conventie in _OPENERS and _OPENERS[conventie].search(alinea):
-        return True
     return any(patroon.search(alinea) for patroon in _OPENERS.values())
 
 
 def _woorden_in(tekst: str) -> int:
-    return len(re.findall(r"[^\W\d_]+", tekst, re.UNICODE))
+    # Op onbewerkte tekst, dus zonder spaCy: dezelfde letterdefinitie als
+    # `lettergrepen`, zodat de twee niet uit elkaar lopen.
+    return sum(1 for _ in _LETTERS.finditer(tekst))
 
 
 def analyseer_dialoog(tekst: str, manuscript_conventie: str | None = None) -> Dialoog:
@@ -131,21 +127,27 @@ def analyseer_dialoog(tekst: str, manuscript_conventie: str | None = None) -> Di
     if not alineas:
         alineas = [tekst] if tekst.strip() else []
 
-    eigen_conventie = dominante_conventie(tekst)
+    telling = tel_conventies(tekst)
+    eigen_conventie = sterkste_conventie(telling)
 
-    dialoogalineas = [a for a in alineas if is_dialoogalinea(a, eigen_conventie)]
-    woorden_dialoog = sum(_woorden_in(a) for a in dialoogalineas)
-    woorden_totaal = sum(_woorden_in(a) for a in alineas)
+    # Eén doorloop over de alinea's: de dialoogalinea's zijn een deelverzameling
+    # van alle alinea's, dus apart optellen zou ze een tweede keer tellen.
+    aantal_dialoog = 0
+    woorden_dialoog = 0
+    woorden_totaal = 0
+    for alinea in alineas:
+        woorden = _woorden_in(alinea)
+        woorden_totaal += woorden
+        if is_dialoogalinea(alinea):
+            aantal_dialoog += 1
+            woorden_dialoog += woorden
 
     return Dialoog(
         alineas=len(alineas),
-        dialoogalineas=len(dialoogalineas),
+        dialoogalineas=aantal_dialoog,
         dialoog_pct=(100 * woorden_dialoog / woorden_totaal) if woorden_totaal else 0.0,
-        gemiddelde_dialoogregel=(
-            woorden_dialoog / len(dialoogalineas) if dialoogalineas else 0.0
-        ),
         conventie=eigen_conventie,
-        conventies_gevonden=tel_conventies(tekst),
+        telling=telling,
         wijkt_af=bool(
             eigen_conventie
             and manuscript_conventie
@@ -158,24 +160,23 @@ def analyseer_dialoog(tekst: str, manuscript_conventie: str | None = None) -> Di
 # Tempo
 # ---------------------------------------------------------------
 
-def zinslengtes(doc) -> list[int]:
-    """Aantal woorden per zin."""
-    lengtes = []
-    for zin in doc.sents:
-        aantal = sum(1 for token in zin if is_woord(token))
-        if aantal:
-            lengtes.append(aantal)
-    return lengtes
+def zinslengtes(doc, zinlijst=None) -> list[int]:
+    """Aantal woorden per zin, via dezelfde zin- en woorddefinitie als de rest."""
+    return [sum(1 for token in zin if is_woord(token))
+            for zin in (zinnen(doc) if zinlijst is None else zinlijst)]
 
 
-def analyseer_tempo(doc) -> Tempo:
+def analyseer_tempo(doc, zinlijst=None) -> Tempo:
     """
     Ritme van de zinslengte.
 
     De spreiding is hier de interessantste maat: een hoofdstuk waarin elke zin
     ongeveer even lang is, leest vlak, of die zinnen nu kort of lang zijn.
+
+    *zinlijst* mag meekomen als de aanroeper `taal.zinnen(doc)` al heeft: dat
+    scheelt een doorloop over alle tokens.
     """
-    lengtes = zinslengtes(doc)
+    lengtes = zinslengtes(doc, zinlijst)
     if not lengtes:
         return Tempo(0, 0.0, 0.0, 0.0, 0.0, [])
 

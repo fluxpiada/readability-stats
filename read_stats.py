@@ -1,17 +1,12 @@
 """
-utils.py — shared helpers for readability-stats
+read_stats.py — shared helpers for readability-stats
 """
 
 import os
 import re
 import sys
+from functools import lru_cache
 from pathlib import Path
-
-try:
-    import docx  # python-docx
-    DOCX_AVAILABLE = True
-except ImportError:
-    DOCX_AVAILABLE = False
 
 
 # -----------------------------------------------
@@ -178,6 +173,28 @@ def register_unicode_font() -> str:
 # Interactive folder prompt
 # -----------------------------------------------
 
+def normalise_path(raw: str) -> str:
+    """
+    Clean up a path that was dragged in or pasted rather than typed.
+
+    Such a path arrives literally: still wrapped in quotes, with backslashes in
+    front of spaces and an unexpanded ~, because no shell has touched it. The
+    launcher scripts do this same cleanup before they hand a path over, so
+    doing it here means a path typed at the Python prompt behaves the same way.
+    """
+    path = raw.strip()
+    for quote in ('"', "'"):
+        if len(path) > 1 and path.startswith(quote) and path.endswith(quote):
+            path = path[1:-1]
+            break
+    path = path.replace("\\ ", " ")
+    path = os.path.expanduser(path)
+    # A trailing separator is harmless but makes paths compare unequal.
+    if len(path) > 1:
+        path = path.rstrip(os.sep)
+    return path
+
+
 def resolve_folder(default: str | None = None) -> str:
     """
     Return the folder to analyse, in this priority order:
@@ -187,7 +204,7 @@ def resolve_folder(default: str | None = None) -> str:
     Raises SystemExit if nothing is available.
     """
     if len(sys.argv) > 1:
-        return sys.argv[1]
+        return normalise_path(sys.argv[1])
 
     if sys.stdin.isatty():
         prompt = "Folder to analyse"
@@ -196,10 +213,10 @@ def resolve_folder(default: str | None = None) -> str:
         prompt += ": "
         answer = input(prompt).strip()
         if answer:
-            return answer
+            return normalise_path(answer)
 
     if default:
-        return default
+        return normalise_path(default)
 
     print("Error: no folder specified. Pass a path as the first argument.")
     raise SystemExit(1)
@@ -224,6 +241,9 @@ def strip_markdown(md: str) -> str:
 # Syllable counter
 # -----------------------------------------------
 
+# Cached because natural language repeats itself: across a manuscript the great
+# majority of calls are for a word already counted.
+@lru_cache(maxsize=100_000)
 def count_syllables(word: str) -> int:
     word = re.sub(r"[^a-z]", "", word.lower())
     if not word:
@@ -250,8 +270,16 @@ def count_syllables(word: str) -> int:
 # Readability metrics (Flesch, FK Grade, Fog)
 # -----------------------------------------------
 
+WORD_RE = re.compile(r"\b[\w']+\b")
+
+
+def count_words(text: str) -> int:
+    """How many words this text holds, by the same rule the formulas use."""
+    return sum(1 for _ in WORD_RE.finditer(text))
+
+
 def readability_metrics(text: str) -> dict | None:
-    words = re.findall(r"\b[\w']+\b", text)
+    words = WORD_RE.findall(text)
     word_count = len(words)
 
     sentences = [s for s in re.split(r"[.!?]+", text) if s.strip()]
@@ -260,8 +288,9 @@ def readability_metrics(text: str) -> dict | None:
     if sentence_count == 0 or word_count == 0:
         return None
 
-    syllable_count = sum(count_syllables(w) for w in words)
-    complex_words = sum(1 for w in words if count_syllables(w) >= 3)
+    counts = [count_syllables(w) for w in words]
+    syllable_count = sum(counts)
+    complex_words = sum(1 for c in counts if c >= 3)
 
     flesch   = 206.835 - 1.015 * (word_count / sentence_count) - 84.6 * (syllable_count / word_count)
     fk_grade = 0.39 * (word_count / sentence_count) + 11.8 * (syllable_count / word_count) - 15.59
@@ -282,9 +311,18 @@ def readability_metrics(text: str) -> dict | None:
 # -----------------------------------------------
 
 def extract_docx(path: Path) -> str:
-    """Extract plain text from a .docx file (requires python-docx)."""
-    if not DOCX_AVAILABLE:
-        raise ImportError("python-docx is not installed. Run: pip install python-docx")
+    """
+    Extract plain text from a .docx file (requires python-docx).
+
+    Imported here rather than at module level: python-docx pulls in lxml, and
+    most of the scripts never open a .docx at all.
+    """
+    try:
+        import docx  # python-docx
+    except ImportError as exc:
+        raise ImportError(
+            "python-docx is not installed. Run: uv sync"
+        ) from exc
     doc = docx.Document(str(path))
     return "\n".join(p.text for p in doc.paragraphs)
 
@@ -310,17 +348,14 @@ def load_chapters(folder: str) -> list[tuple[str, str]]:
     )
 
     for path in candidates:
-        if path.suffix.lower() == ".md":
-            raw = path.read_text(encoding="utf-8")
-            text = strip_markdown(raw)
-        elif path.suffix.lower() == ".docx":
+        if path.suffix.lower() == ".docx":
             try:
                 text = extract_docx(path)
             except ImportError as e:
                 print(f"Skipping {path.name}: {e}")
                 continue
         else:
-            continue
+            text = strip_markdown(path.read_text(encoding="utf-8"))
 
         chapters.append((path.name, text))
 
@@ -349,8 +384,18 @@ def ensure_nltk_data() -> bool:
             import nltk
             from nltk.corpus import stopwords
 
-            for package in ("punkt", "punkt_tab", "stopwords"):
-                nltk.download(package, quiet=True)
+            # Look before downloading: nltk.download fetches and parses the
+            # remote package index even when the corpus is already present, so
+            # calling it unconditionally costs a network round-trip per run.
+            for package, path in (
+                ("punkt", "tokenizers/punkt"),
+                ("punkt_tab", "tokenizers/punkt_tab"),
+                ("stopwords", "corpora/stopwords"),
+            ):
+                try:
+                    nltk.data.find(path)
+                except LookupError:
+                    nltk.download(package, quiet=True)
             stopwords.words("english")   # forces a real lookup, so missing data fails here
             _NLTK_READY = True
         except Exception:
@@ -358,13 +403,25 @@ def ensure_nltk_data() -> bool:
     return _NLTK_READY
 
 
+@lru_cache(maxsize=1)
+def _stopwords() -> frozenset[str]:
+    """
+    The English stopword set, read once.
+
+    NLTK re-reads the corpus file from disk on every stopwords.words() call,
+    and clean_tokens runs once per chapter.
+    """
+    from nltk.corpus import stopwords
+
+    return frozenset(stopwords.words("english"))
+
+
 def clean_tokens(text: str) -> list[str]:
     """Lowercased word tokens, minus stopwords and punctuation."""
     import string
     from nltk.tokenize import word_tokenize
-    from nltk.corpus import stopwords
 
-    stop = set(stopwords.words("english"))
+    stop = _stopwords()
     tokens = [w.lower() for w in word_tokenize(text)]
     return [t for t in tokens if t not in stop and t not in string.punctuation]
 
@@ -376,22 +433,50 @@ def ttr(tokens: list[str]) -> float:
     return len(set(tokens)) / len(tokens)
 
 
-def mtld(tokens: list[str], threshold: float = 0.72) -> float:
-    """Measure of Textual Lexical Diversity."""
-    if not tokens:
-        return 0.0
+def _mtld_run(tokens: list[str], threshold: float) -> float:
+    """One directional pass: how many factors the token stream breaks into."""
+    factors = 0.0
+    segment: list[str] = []
+    seen: set[str] = set()
 
-    factors, segment = 0, []
-    for t in tokens:
-        segment.append(t)
-        if (len(set(segment)) / len(segment)) < threshold:
+    for token in tokens:
+        segment.append(token)
+        seen.add(token)
+        if len(seen) / len(segment) < threshold:
             factors += 1
-            segment = []
+            segment, seen = [], set()
 
     if segment:
-        factors += (len(segment) / (len(set(segment)) / threshold))
+        ratio = len(seen) / len(segment)
+        # partial factor: how far this leftover segment got towards the threshold
+        if ratio < 1.0:
+            factors += (1 - ratio) / (1 - threshold)
 
-    return len(tokens) / factors if factors else 0.0
+    if not factors:
+        # No segment ever dropped below the threshold, i.e. every word is new.
+        # That is maximum diversity, and the convention is to return the text
+        # length — not 0, which would mean the opposite.
+        return float(len(tokens))
+
+    return len(tokens) / factors
+
+
+def mtld(tokens: list[str], threshold: float = 0.72) -> float:
+    """
+    Measure of Textual Lexical Diversity (McCarthy & Jarvis).
+
+    Measured in both directions and averaged, as the published algorithm
+    specifies: a forward-only pass reports a different number depending on
+    which end of the chapter it starts from. The Dutch twin of this function
+    is `nl/leesbaarheid/woordenschat.mtld`.
+    """
+    if not tokens:
+        return 0.0
+    forward = _mtld_run(tokens, threshold)
+    backward = _mtld_run(list(reversed(tokens)), threshold)
+    if not forward or not backward:
+        return forward or backward
+    return (forward + backward) / 2
 
 
 # -----------------------------------------------
@@ -412,17 +497,88 @@ def tightening_score(df):
 
 
 # -----------------------------------------------
+# Per-chapter table
+# -----------------------------------------------
+
+def chapter_frame(folder: str, lexical: bool = False):
+    """
+    Load *folder* and return (per-chapter stats, whether lexical diversity was
+    measured).
+
+    Every script that tabulates chapters starts here, so the column names are
+    defined once. Deltas and the tightening score are always present: they are
+    derived from the rows already in hand and cost nothing to add.
+
+    *lexical* additionally measures TTR and MTLD, which needs NLTK's corpora;
+    the returned flag says whether that succeeded, so callers can drop those
+    columns rather than crash when the data cannot be downloaded.
+
+    pandas is imported here because the scripts that only print text should not
+    pay for it.
+    """
+    import pandas as pd
+
+    lexical_ok = lexical and ensure_nltk_data()
+    rows = []
+
+    for i, (filename, text) in enumerate(load_chapters(folder)):
+        m = readability_metrics(text)
+        if not m:
+            continue
+
+        row = {
+            "chapter":   filename,
+            "order":     i,
+            "words":     m["words"],
+            "sentences": m["sentences"],
+            "avg_sent":  m["words"] / m["sentences"],
+            "flesch":    m["flesch"],
+            "fk":        m["fk_grade"],
+            "fog":       m["gunning_fog"],
+        }
+
+        if lexical_ok:
+            tokens = clean_tokens(text)
+            row["ttr"] = ttr(tokens)
+            row["mtld"] = mtld(tokens)
+
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return df, lexical_ok
+
+    df["delta_flesch"] = df["flesch"].diff()
+    df["delta_fog"] = df["fog"].diff()
+    df["delta_words"] = df["words"].diff()
+    df["tightening"] = tightening_score(df)
+    return df, lexical_ok
+
+
+# -----------------------------------------------
 # Pacing curve plot
 # -----------------------------------------------
 
-# Flesch's published interpretation bands, drawn as background on the chart.
+# Flesch's published interpretation bands: the name a score gets in the console
+# and the background shading on the chart, from one table so the two can never
+# call the same score by different words.
 FLESCH_BANDS = [
     (90, 100, "#e8f5e9", "very easy"),
-    (70, 90, "#f1f8e9", "easy"),
+    (80, 90, "#f1f8e9", "easy"),
+    (70, 80, "#f9fbe7", "fairly easy"),
     (60, 70, "#fffde7", "standard"),
     (50, 60, "#fff3e0", "fairly difficult"),
-    (0, 50, "#fbe9e7", "difficult"),
+    (30, 50, "#fbe9e7", "difficult"),
+    (0, 30, "#ffebee", "very hard going"),
 ]
+
+
+def band(score: float) -> str:
+    """The interpretation band a Flesch score falls in."""
+    for floor, _, _, name in FLESCH_BANDS:
+        if score >= floor:
+            return name
+    return FLESCH_BANDS[-1][3]
 
 
 def plot_pacing_curve(df, output_path: str = "pacing_curve.png") -> Path:

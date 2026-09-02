@@ -34,7 +34,7 @@ uitkomst is dus **niet** vergelijkbaar met gepubliceerde Fog-scores.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from .lettergrepen import tel_lettergrepen
 
@@ -70,7 +70,6 @@ class Leesbaarheid:
     lange_woorden_pct: float          # >= 4 lettergrepen
     lange_letters_pct: float          # > 9 letters
     moeilijke_woorden_pct: float | None = None
-    _bron: dict = field(default_factory=dict, repr=False)
 
 
 def flesch_douma(woorden: int, zinnen: int, lettergrepen: int) -> float:

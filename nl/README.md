@@ -653,16 +653,24 @@ $env:RS_SPACY_MODEL = "nl_core_news_md"
 > `samenvatting.json` en in de kolom Taalmodel van `rapporten/index.md`. Ziet u
 > een sprong tussen twee runs, kijk daar eerst.
 
-Installeren gebeurt met `uv pip install` en een vastgepinde wheel-URL, niet met
-`python -m spacy download`: die laatste roept pip aan, en een door uv beheerde
-omgeving heeft geen pip.
+Elk model heeft een eigen dependency-groep in `pyproject.toml`, met de
+wheel-URL onder `[tool.uv.sources]`. Zo staan alle drie de modellen in
+`uv.lock` en ligt de versie vast. Ophalen gebeurt dus met een gewone sync:
 
-Omdat `md` en `lg` zo buiten `uv.lock` om worden geïnstalleerd, draaien de
-startscripts hun `uv sync` met `--inexact`. Zonder die vlag maakt uv de omgeving
-precies gelijk aan de lock en verwijdert het het model weer bij de eerstvolgende
-start — dan lijkt het opgehaald, maar is het meteen weer weg. Merkt u dat een
-model na installatie toch niet gevonden wordt, dan is er ergens een `uv sync`
-zonder `--inexact` overheen gegaan; haal het model dan opnieuw op.
+```bash
+uv sync --inexact --group nl --group nl-md      # of nl-lg
+```
+
+`./nl/run_nl.sh taalmodel md` doet dit zelf; u hoeft de opdracht niet met de
+hand te draaien. Bewust geen `python -m spacy download`: die roept pip aan, en
+een door uv beheerde omgeving heeft geen pip.
+
+`--inexact` staat er omdat een sync de omgeving precies gelijkmaakt aan de
+groepen die u noemt. Zonder die vlag zou het ophalen van `md` het al aanwezige
+`lg` verwijderen, en zou elke start van een startscript het gekozen model weer
+weggooien. Daarom draaien de vier startscripts hun `uv sync` ook met
+`--inexact`. Merkt u dat een model na installatie toch niet gevonden wordt, dan
+is er ergens een sync zonder die vlag overheen gegaan; haal het dan opnieuw op.
 
 ---
 

@@ -316,6 +316,8 @@ RICHTINGEN = ("hoger", "lager", "geen")
 # maar is de fictiezone van ons, en dat verschil is het opschrijven waard.
 # Wel moet er altijd één van deze woorden in staan, zodat er nooit een zone
 # opduikt waarvan niemand meer weet of hij uit de literatuur komt of van ons.
+# Die eis staat niet in de code maar in nl/tests/test_teksten.py; dit is de
+# lijst waar die test op controleert.
 STREEFBRONNEN = ("gepubliceerd", "eigen richtlijn", "geen")
 
 SYMBOLEN = {"hoger": "↑", "lager": "↓", "geen": "•"}
@@ -511,13 +513,39 @@ VOORBEHOUD = (
         "Beide zijn geen gepubliceerde maat. Ze staan erin omdat ze bruikbaar zijn, "
         "niet omdat ze gezag hebben.",
     ),
-    (
-        "Het taalmodel is het kleine model",
-        "nl_core_news_sm herkent de lijdende vorm en zinsdelen goed maar niet "
-        "foutloos. Met de omgevingsvariabele RS_SPACY_MODEL kun je een groter model "
-        "kiezen.",
-    ),
 )
+
+
+def voorbehoud(taalmodel: str) -> tuple[tuple[str, str], ...]:
+    """
+    De voorbehouden, met het model dat dit rapport heeft gemaakt erbij.
+
+    Het model is instelbaar, dus deze alinea mag geen vaste naam noemen: een
+    rapport dat bovenaan `nl_core_news_lg` meldt en hier over het kleine model
+    praat, spreekt zichzelf tegen.
+    """
+    from . import taal
+
+    sleutel = taal.MODEL_PER_NAAM.get(taalmodel)
+    model = taal.MODELLEN.get(sleutel) if sleutel else None
+
+    if model is None:
+        uitleg = (
+            f"{taalmodel} herkent de lijdende vorm en zinsdelen goed maar niet "
+            "foutloos."
+        )
+    else:
+        uitleg = (
+            f"{model.naam} ({model.grootte}, {model.omschrijving}) herkent de "
+            "lijdende vorm en zinsdelen goed maar niet foutloos."
+        )
+    uitleg += (
+        f" Een ander model kiezen kan met `{taal.STARTSCRIPT} taalmodel md`; "
+        "de stijlcijfers verschuiven dan, dus runs met verschillende modellen "
+        "zijn niet zonder meer vergelijkbaar."
+    )
+
+    return VOORBEHOUD + (("Het taalmodel bepaalt de stijlcijfers", uitleg),)
 
 LITERATUUR = (
     (
@@ -573,14 +601,24 @@ LITERATUUR = (
         "Pyphen — afbreken met Hunspell-woordenboeken uit LibreOffice.",
         "https://pyphen.org/",
     ),
-    (
-        "spaCy nl_core_news_sm — getraind op UD Dutch Alpino en LassySmall.",
-        "https://github.com/explosion/spacy-models",
-    ),
 )
 
 LICENTIES = (
     ("pyphen en de afbreekwoordenboeken (LibreOffice)", "GPL 2.0+ / LGPL 2.1+ / MPL 1.1"),
-    ("spaCy-model nl_core_news_sm (UD Alpino + LassySmall)", "CC BY-SA 4.0"),
     ("wordfreq", "MIT; brondata onder uiteenlopende licenties"),
 )
+
+
+def literatuur(taalmodel: str) -> tuple[tuple[str, str], ...]:
+    """De literatuurlijst, met het model dat dit rapport heeft gemaakt."""
+    return LITERATUUR + ((
+        f"spaCy {taalmodel} — getraind op UD Dutch Alpino en LassySmall.",
+        "https://github.com/explosion/spacy-models",
+    ),)
+
+
+def licenties(taalmodel: str) -> tuple[tuple[str, str], ...]:
+    """De licenties, met het model dat dit rapport heeft gemaakt."""
+    return LICENTIES + ((
+        f"spaCy-model {taalmodel} (UD Alpino + LassySmall)", "CC BY-SA 4.0",
+    ),)

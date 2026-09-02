@@ -4,7 +4,7 @@ Usage: python 05_lexical_div.py [folder]
 """
 
 from read_stats import (
-    METRICS, clean_tokens, ensure_nltk_data, legend, load_chapters, mtld,
+    clean_tokens, ensure_nltk_data, header, legend, load_chapters, mtld,
     resolve_folder, ttr,
 )
 
@@ -14,8 +14,7 @@ def main(folder: str) -> None:
         print("NLTK punkt/stopwords data unavailable — cannot measure lexical diversity.")
         return
 
-    ttr_h = f"TTR {METRICS['ttr'].symbol}"
-    mtld_h = f"MTLD {METRICS['mtld'].symbol}"
+    ttr_h, mtld_h = header("ttr"), header("mtld")
     print(f"{'Chapter':<40} {ttr_h:>8}  {mtld_h:>9}")
     print("-" * 60)
     for filename, text in load_chapters(folder):

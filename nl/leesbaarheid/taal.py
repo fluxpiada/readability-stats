@@ -27,14 +27,16 @@ from pathlib import Path
 
 _nlp = None
 _geladen_model: str | None = None
+_sessiemodel: str | None = None
 
 STANDAARDMODEL = "nl_core_news_sm"
 
 # Het startscript verschilt per systeem, dus de tips in de foutmeldingen ook.
-STARTSCRIPT = r".\nl\run_nl.ps1" if os.name == "nt" else "./nl/run_nl.sh"
-
-# De modelversie moet met de spaCy-minor meebewegen; staat ook zo in pyproject.toml.
-MODELVERSIE = "3.8.0"
+# Afgeleid van dit bestand, zodat het pad klopt vanuit welke map u ook draait.
+_WORTEL = Path(__file__).resolve().parents[2]
+STARTSCRIPT = (
+    str(_WORTEL / "nl" / "run_nl.ps1") if os.name == "nt" else "./nl/run_nl.sh"
+)
 
 
 @dataclass(frozen=True)
@@ -42,22 +44,18 @@ class Model:
     naam: str
     grootte: str
     omschrijving: str
-
-    @property
-    def wheel(self) -> str:
-        return (
-            "https://github.com/explosion/spacy-models/releases/download/"
-            f"{self.naam}-{MODELVERSIE}/{self.naam}-{MODELVERSIE}-py3-none-any.whl"
-        )
+    groep: str      # de dependency-groep in pyproject.toml die dit model levert
 
 
 # Voor het Nederlands bestaan alleen deze drie. Er is géén nl_core_news_trf:
 # spaCy levert voor het Nederlands geen transformermodel, anders dan voor
 # bijvoorbeeld Catalaans of Deens. Dit is dus het hele scala.
 MODELLEN: dict[str, Model] = {
-    "sm": Model("nl_core_news_sm", "12 MB", "klein en snel; de standaard"),
-    "md": Model("nl_core_news_md", "40 MB", "met woordvectoren; de zinnige stap omhoog"),
-    "lg": Model("nl_core_news_lg", "541 MB", "grote vectoren; forse download, beperkte winst"),
+    "sm": Model("nl_core_news_sm", "12 MB", "klein en snel; de standaard", "nl"),
+    "md": Model("nl_core_news_md", "40 MB",
+                "met woordvectoren; de zinnige stap omhoog", "nl-md"),
+    "lg": Model("nl_core_news_lg", "541 MB",
+                "grote vectoren; forse download, beperkte winst", "nl-lg"),
 }
 
 MODEL_PER_NAAM = {m.naam: sleutel for sleutel, m in MODELLEN.items()}
@@ -66,11 +64,20 @@ MODEL_PER_NAAM = {m.naam: sleutel for sleutel, m in MODELLEN.items()}
 VOORKEURSBESTAND = Path(__file__).resolve().parents[1] / ".taalmodel"
 
 
-def _volledige_naam(keuze: str) -> str:
-    """Accepteer zowel 'md' als 'nl_core_news_md'."""
+def volledige_naam(keuze: str) -> str:
+    """
+    Accepteer zowel 'md' als 'nl_core_news_md'.
+
+    Onbekende namen komen er hier uit als ValueError, zodat elke manier om een
+    model te kiezen — vlag, omgevingsvariabele, voorkeursbestand — langs
+    dezelfde controle gaat en dezelfde melding geeft.
+    """
     if keuze in MODELLEN:
         return MODELLEN[keuze].naam
-    return keuze
+    if keuze in MODEL_PER_NAAM:
+        return keuze
+    bekend = ", ".join(f"{s} ({m.naam})" for s, m in MODELLEN.items())
+    raise ValueError(f"Onbekend model: {keuze}. Kies uit: {bekend}")
 
 
 def is_geinstalleerd(naam: str) -> bool:
@@ -91,16 +98,38 @@ def _opgeslagen_voorkeur() -> str | None:
         keuze = VOORKEURSBESTAND.read_text(encoding="utf-8").strip()
     except OSError:
         return None
-    return _volledige_naam(keuze) if keuze else None
+    if not keuze:
+        return None
+    try:
+        return volledige_naam(keuze)
+    except ValueError:
+        return None      # een onleesbaar voorkeursbestand mag niets breken
+
+
+def stel_model_in(keuze: str) -> str:
+    """
+    Gebruik *keuze* voor deze run, zonder de voorkeur op schijf te wijzigen.
+
+    Dit is wat `--model` doet. Het zet een echte voorrangswaarde in plaats van
+    alvast te laden en op de cache te vertrouwen: zo staat het antwoord van
+    `huidig_model()` vast, ook als er later een tweede pijplijn bij komt.
+    """
+    global _sessiemodel, _nlp, _geladen_model
+    naam = volledige_naam(keuze)
+    _sessiemodel = naam
+    if _geladen_model and _geladen_model != naam:
+        _nlp, _geladen_model = None, None      # bij de volgende aanroep opnieuw laden
+    return naam
 
 
 def huidig_model() -> str:
     """
     Welk model draait er, in volgorde van voorrang:
-    expliciete keuze → RS_SPACY_MODEL → opgeslagen voorkeur → standaard.
+    keuze voor deze run → RS_SPACY_MODEL → opgeslagen voorkeur → standaard.
     """
     return (
-        os.environ.get("RS_SPACY_MODEL")
+        _sessiemodel
+        or os.environ.get("RS_SPACY_MODEL")
         or _opgeslagen_voorkeur()
         or STANDAARDMODEL
     )
@@ -113,11 +142,7 @@ def kies_model(keuze: str) -> str:
     Controleert de naam, maar niet of het model al geïnstalleerd is: het mag
     ingesteld worden vlak voordat het wordt opgehaald.
     """
-    naam = _volledige_naam(keuze)
-    if naam not in MODEL_PER_NAAM:
-        bekend = ", ".join(f"{s} ({m.naam})" for s, m in MODELLEN.items())
-        raise ValueError(f"Onbekend model: {keuze}. Kies uit: {bekend}")
-
+    naam = volledige_naam(keuze)
     VOORKEURSBESTAND.write_text(naam + "\n", encoding="utf-8")
     global _nlp, _geladen_model
     if _geladen_model and _geladen_model != naam:
@@ -129,15 +154,18 @@ def installatieopdracht(keuze: str) -> str:
     """
     De opdracht die dit model ophaalt.
 
-    Bewust `uv pip install` met de wheel-URL en niet `python -m spacy download`:
-    die laatste roept pip aan, en een door uv beheerde omgeving heeft geen pip,
-    dus dat loopt vast op een verwarrende foutmelding.
+    Elk model heeft een eigen dependency-groep in pyproject.toml, met de
+    wheel-URL onder [tool.uv.sources]. Zo staat het model in uv.lock en is de
+    versie vastgelegd — bij `uv pip install` met een losse URL was dat niet zo.
+
+    --inexact omdat een groep-sync precies gelijkmaakt aan de genoemde groepen:
+    zonder die vlag zou het installeren van md het al aanwezige lg weggooien.
+
+    Bewust geen `python -m spacy download`: die roept pip aan, en een door uv
+    beheerde omgeving heeft geen pip.
     """
-    naam = _volledige_naam(keuze)
-    sleutel = MODEL_PER_NAAM.get(naam)
-    if sleutel is None:
-        raise ValueError(f"Onbekend model: {keuze}")
-    return f"uv pip install {MODELLEN[sleutel].wheel}"
+    model = MODELLEN[MODEL_PER_NAAM[volledige_naam(keuze)]]
+    return f"uv sync --inexact --group nl --group {model.groep}"
 
 # Nederlandse afkortingen die op een punt eindigen. Zonder deze lijst telt
 # "Hij kwam om 9 uur, d.w.z. te laat." als drie zinnen in plaats van één, en
@@ -161,7 +189,7 @@ def haal_nlp(model_naam: str | None = None):
     """
     global _nlp, _geladen_model
 
-    naam = _volledige_naam(model_naam) if model_naam else huidig_model()
+    naam = volledige_naam(model_naam) if model_naam else huidig_model()
     if _nlp is not None and _geladen_model == naam:
         return _nlp
 

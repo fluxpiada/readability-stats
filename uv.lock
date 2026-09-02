@@ -1458,6 +1458,22 @@ wheels = [
 ]
 
 [[package]]
+name = "nl-core-news-lg"
+version = "3.8.0"
+source = { url = "https://github.com/explosion/spacy-models/releases/download/nl_core_news_lg-3.8.0/nl_core_news_lg-3.8.0-py3-none-any.whl" }
+wheels = [
+    { url = "https://github.com/explosion/spacy-models/releases/download/nl_core_news_lg-3.8.0/nl_core_news_lg-3.8.0-py3-none-any.whl", hash = "sha256:19a3cb18b92f775a0df0e61026e2a0f874e73aabb1b744b16230dfe573a3e34e" },
+]
+
+[[package]]
+name = "nl-core-news-md"
+version = "3.8.0"
+source = { url = "https://github.com/explosion/spacy-models/releases/download/nl_core_news_md-3.8.0/nl_core_news_md-3.8.0-py3-none-any.whl" }
+wheels = [
+    { url = "https://github.com/explosion/spacy-models/releases/download/nl_core_news_md-3.8.0/nl_core_news_md-3.8.0-py3-none-any.whl", hash = "sha256:8969da865bb746189783c40197a7e2c082adda73b7fc0d9a364a5e644ff54e68" },
+]
+
+[[package]]
 name = "nl-core-news-sm"
 version = "3.8.0"
 source = { url = "https://github.com/explosion/spacy-models/releases/download/nl_core_news_sm-3.8.0/nl_core_news_sm-3.8.0-py3-none-any.whl" }
@@ -2247,6 +2263,12 @@ nl = [
     { name = "spacy" },
     { name = "wordfreq" },
 ]
+nl-lg = [
+    { name = "nl-core-news-lg" },
+]
+nl-md = [
+    { name = "nl-core-news-md" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -2265,6 +2287,8 @@ nl = [
     { name = "spacy", specifier = ">=3.7,<4" },
     { name = "wordfreq", specifier = "==3.1.1" },
 ]
+nl-lg = [{ name = "nl-core-news-lg", url = "https://github.com/explosion/spacy-models/releases/download/nl_core_news_lg-3.8.0/nl_core_news_lg-3.8.0-py3-none-any.whl" }]
+nl-md = [{ name = "nl-core-news-md", url = "https://github.com/explosion/spacy-models/releases/download/nl_core_news_md-3.8.0/nl_core_news_md-3.8.0-py3-none-any.whl" }]
 
 [[package]]
 name = "regex"

@@ -42,13 +42,21 @@ import re
 import unicodedata
 from functools import lru_cache
 
-try:
-    import pyphen
-    _woordenboek = pyphen.Pyphen(lang="nl_NL")
-    PYPHEN_BESCHIKBAAR = True
-except Exception:          # pyphen ontbreekt, of geen nl_NL-woordenboek
-    _woordenboek = None
-    PYPHEN_BESCHIKBAAR = False
+@lru_cache(maxsize=1)
+def _pyphen():
+    """
+    Het afbreekwoordenboek, pas geladen bij het eerste woord dat geteld wordt.
+
+    Niet bij het importeren: opdrachten die geen lettergrepen tellen (zoals
+    `analyseer.py taalmodel`) zouden het hele nl_NL-woordenboek inlezen voor
+    niets. None als pyphen ontbreekt of er geen nl_NL-woordenboek is.
+    """
+    try:
+        import pyphen
+
+        return pyphen.Pyphen(lang="nl_NL")
+    except Exception:
+        return None
 
 
 # ---------------------------------------------------------------
@@ -174,8 +182,9 @@ def tel_lettergrepen(woord: str) -> int:
     if not schoon:
         return 0
 
-    if PYPHEN_BESCHIKBAAR:
-        fragmenten = _woordenboek.inserted(schoon).split("-")
+    woordenboek = _pyphen()
+    if woordenboek is not None:
+        fragmenten = woordenboek.inserted(schoon).split("-")
         totaal = sum(tel_kernen(f) for f in fragmenten if f)
     else:
         totaal = tel_kernen(schoon)
@@ -194,8 +203,3 @@ def tel_lettergrepen_zonder_pyphen(woord: str) -> int:
     if not schoon:
         return 0
     return max(1, tel_kernen(schoon))
-
-
-def tel_lettergrepen_reeks(woorden) -> int:
-    """Som van de lettergrepen over een reeks woorden."""
-    return sum(tel_lettergrepen(w) for w in woorden)

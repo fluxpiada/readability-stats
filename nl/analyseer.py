@@ -15,18 +15,16 @@ geeft en de omgeving regelt.
 from __future__ import annotations
 
 import argparse
-import os
+import subprocess
 import sys
 from pathlib import Path
 
-# Het startscript verschilt per systeem, dus de tips in de uitvoer ook.
-STARTSCRIPT = r".\nl\run_nl.ps1" if os.name == "nt" else "./nl/run_nl.sh"
-
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from leesbaarheid import teksten  # noqa: E402
+from leesbaarheid import taal, teksten  # noqa: E402
 from leesbaarheid.analyse import Manuscript, analyseer_manuscript, naar_dataframe  # noqa: E402
 from leesbaarheid.formules import band  # noqa: E402
+from leesbaarheid.taal import STARTSCRIPT  # noqa: E402
 
 
 def _tabel(df, kolommen: dict[str, str]) -> None:
@@ -146,10 +144,8 @@ def toon_rapport(manuscript: Manuscript, map_uit: str | None) -> None:
         print(f"  {bestand.name}")
 
 
-def toon_taalmodel(keuze: str | None) -> int:
+def toon_taalmodel(keuze: str | None, installeer: bool = False) -> int:
     """Laat zien welke modellen er zijn, of stel er een in."""
-    from leesbaarheid import taal
-
     if keuze:
         try:
             naam = taal.kies_model(keuze)
@@ -157,13 +153,28 @@ def toon_taalmodel(keuze: str | None) -> int:
             print(fout)
             return 1
         print(f"Taalmodel ingesteld op: {naam}")
-        if not taal.is_geinstalleerd(naam):
+
+        if taal.is_geinstalleerd(naam):
+            return 0
+
+        opdracht = taal.installatieopdracht(naam)
+        if not installeer:
             print("\nDit model staat nog niet in de omgeving. Installeer het met:")
-            print(f"  {taal.installatieopdracht(naam)}")
+            print(f"  {opdracht}")
+            return 0
+
+        # Het ophalen hoort hier en niet in de startscripts: die zouden dan de
+        # wheel-URL's en de modeltabel moeten kennen, in twee talen.
+        print(f"\nHet model wordt opgehaald:  {opdracht}")
+        klaar = subprocess.run(opdracht.split())
+        if klaar.returncode != 0:
+            print("\nOphalen is niet gelukt. Probeer de opdracht hierboven zelf.")
+            return klaar.returncode
         return 0
 
     huidig = taal.huidig_model()
     beschikbaar = taal.beschikbare_modellen()
+
 
     print("Beschikbare Nederlandse taalmodellen:")
     print()
@@ -181,14 +192,17 @@ def toon_taalmodel(keuze: str | None) -> int:
     return 0
 
 
-OPDRACHTEN = {
-    "rapport": None,
+# De opdrachten die alleen een manuscript nodig hebben en het meteen tonen.
+# 'rapport' en 'taalmodel' staan er niet in: die nemen een extra argument en
+# worden in main() afgehandeld.
+TONERS = {
     "leesbaarheid": toon_leesbaarheid,
     "stijl": toon_stijl,
     "dialoog": toon_dialoog,
     "woorden": toon_woorden,
-    "taalmodel": None,
 }
+
+OPDRACHTEN = ("rapport", *TONERS, "taalmodel")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -203,10 +217,12 @@ def main(argv: list[str] | None = None) -> int:
                         help="map voor het rapport (alleen bij 'rapport')")
     parser.add_argument("--model", default=None, metavar="sm|md|lg",
                         help="eenmalig een ander taalmodel gebruiken")
+    parser.add_argument("--installeer", action="store_true",
+                        help="het gekozen model meteen ophalen (bij 'taalmodel')")
     argumenten = parser.parse_args(argv)
 
     if argumenten.opdracht == "taalmodel":
-        return toon_taalmodel(argumenten.map)
+        return toon_taalmodel(argumenten.map, argumenten.installeer)
 
     if argumenten.map is None:
         print("Geef een map met .md- of .docx-bestanden.")
@@ -218,10 +234,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if argumenten.model:
-        from leesbaarheid import taal
         try:
-            naam = taal._volledige_naam(argumenten.model)
-            taal.haal_nlp(naam)          # nu laden, zodat een fout meteen komt
+            taal.stel_model_in(argumenten.model)
         except ValueError as fout:
             print(fout)
             return 1
@@ -237,7 +251,7 @@ def main(argv: list[str] | None = None) -> int:
     if argumenten.opdracht == "rapport":
         toon_rapport(manuscript, argumenten.uitvoer)
     else:
-        OPDRACHTEN[argumenten.opdracht](manuscript)
+        TONERS[argumenten.opdracht](manuscript)
     return 0
 
 

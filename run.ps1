@@ -43,9 +43,9 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
 }
 
 # --- 2. sync the environment (downloads Python 3.12 if needed) --------------
-# --inexact: this venv is shared with nl/, where a larger spaCy model may have
-# been installed by hand. A plain `uv sync` matches uv.lock exactly and would
-# throw that model straight back out.
+# --inexact: this venv is shared with nl/, which may have a larger spaCy model
+# installed from the nl-md or nl-lg group. A sync is exact about the groups it
+# is given, so without this flag it would uninstall that model every run.
 uv sync --quiet --inexact
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -71,7 +71,7 @@ if (-not $Choice) {
     }
     Write-Host "  a) all of the above"
     Write-Host ""
-    $Choice = Read-Host "Choose [1-9 or a]"
+    $Choice = Read-Host "Choose [1-$($Steps.Count) or a]"
 }
 
 if (-not $Folder) {
@@ -111,15 +111,15 @@ function Invoke-Step($script) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
-switch -Regex ($Choice) {
-    '^(a|all|A)$' {
-        foreach ($s in $Steps) { Invoke-Step $s }
-    }
-    '^0?[1-9]$' {
-        Invoke-Step $Steps[[int]$Choice - 1]
-    }
-    default {
-        Write-Host "Unknown choice: $Choice (expected 1-9 or 'all')"
+if ($Choice -match '^(a|all|A)$') {
+    foreach ($s in $Steps) { Invoke-Step $s }
+} else {
+    # The step list is the bound, so adding a tenth step needs no edit here.
+    $number = 0
+    if ([int]::TryParse($Choice, [ref]$number) -and $number -ge 1 -and $number -le $Steps.Count) {
+        Invoke-Step $Steps[$number - 1]
+    } else {
+        Write-Host "Unknown choice: $Choice (expected 1-$($Steps.Count) or 'all')"
         exit 1
     }
 }

@@ -37,7 +37,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import lru_cache
 
-from .taal import is_woord
+from .taal import woorden
 
 # Onder deze Zipf-waarde heet een woord moeilijk: zeldzamer dan ongeveer
 # één voorkomen per miljoen woorden.
@@ -215,23 +215,26 @@ def mtld(tokens: list[str], drempel: float = 0.72) -> float:
 # Analyse per hoofdstuk
 # ---------------------------------------------------------------
 
-def analyseer(doc, drempel: float = ZIPF_DREMPEL, top: int = 15) -> Woordenschat:
+def analyseer(doc, drempel: float = ZIPF_DREMPEL, top: int = 15,
+              woordtokens=None) -> Woordenschat:
     """
     Woordenschatcijfers voor één ontleed hoofdstuk.
 
     Eigennamen en getallen tellen niet mee als moeilijk woord: een lezer
     struikelt niet over een personagenaam, en anders zou elk verzonnen
     plaatsnaampje het percentage opblazen.
+
+    *woordtokens* mag meekomen als de aanroeper `taal.woorden(doc)` al heeft.
     """
+    if woordtokens is None:
+        woordtokens = woorden(doc)
+
     lemmas: list[str] = []
     moeilijk: dict[str, float] = {}
     aantal_moeilijk = 0
     gered = 0
 
-    for token in doc:
-        if not is_woord(token):
-            continue
-
+    for token in woordtokens:
         lemma = token.lemma_.lower() or token.text.lower()
         lemmas.append(lemma)
 
@@ -243,8 +246,11 @@ def analyseer(doc, drempel: float = ZIPF_DREMPEL, top: int = 15) -> Woordenschat
         # komt in geen enkele frequentielijst voor en zou het woord ten onrechte
         # zeldzaam maken. We nemen daarom de bekendste van de twee vormen.
         oppervlakte = token.text.lower()
-        score = max(zipf(lemma), zipf(oppervlakte))
-        vorm = lemma if zipf(lemma) >= zipf(oppervlakte) else oppervlakte
+        zipf_lemma, zipf_oppervlakte = zipf(lemma), zipf(oppervlakte)
+        if zipf_lemma >= zipf_oppervlakte:
+            vorm, score = lemma, zipf_lemma
+        else:
+            vorm, score = oppervlakte, zipf_oppervlakte
 
         if score >= drempel:
             continue

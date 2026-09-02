@@ -26,15 +26,22 @@ fi
 # De groep 'nl' bevat spaCy, het Nederlandse taalmodel, pyphen en wordfreq.
 # De eerste keer duurt dit even: er wordt ongeveer 100 MB opgehaald.
 #
-# --inexact is hier wezenlijk: zonder die vlag maakt `uv sync` de omgeving
-# precies gelijk aan uv.lock en gooit het dus alles eruit wat daar niet in staat.
-# De modellen md en lg worden met `uv pip install` opgehaald en staan niet in de
-# lock, dus die werden bij de volgende start weer verwijderd — het model was dan
-# "opgehaald" maar meteen weer weg.
+# --inexact: een sync maakt de omgeving precies gelijk aan de genoemde groepen.
+# De grotere modellen md en lg staan in hun eigen groep (nl-md, nl-lg), dus
+# zonder deze vlag zou elke start het gekozen model weer verwijderen.
 echo "Omgeving controleren ..."
 uv sync --quiet --inexact --group nl
 
-OPDRACHTEN=(rapport leesbaarheid stijl dialoog woorden taalmodel)
+# Eén lijst: naam en omschrijving samen, zodat het menu en wat er draait niet
+# uit elkaar kunnen lopen.
+OPDRACHTEN=(
+    "rapport|volledig rapport (markdown + PDF + grafieken)"
+    "leesbaarheid|Flesch-Douma en Leesindex A per hoofdstuk"
+    "stijl|lijdende vorm, tangconstructies, schrapwoorden"
+    "dialoog|dialoogaandeel, consistentie en tempo"
+    "woorden|moeilijke woorden en woordvariatie"
+    "taalmodel|nauwkeuriger taalmodel kiezen of installeren"
+)
 
 opdracht="${1:-}"
 map="${2:-}"
@@ -43,18 +50,18 @@ if [ -z "$opdracht" ]; then
     echo
     echo "Nederlandse leesbaarheidsanalyse"
     echo "--------------------------------"
-    echo "  1) rapport       volledig rapport (markdown + PDF + grafieken)"
-    echo "  2) leesbaarheid  Flesch-Douma en Leesindex A per hoofdstuk"
-    echo "  3) stijl         lijdende vorm, tangconstructies, schrapwoorden"
-    echo "  4) dialoog       dialoogaandeel, consistentie en tempo"
-    echo "  5) woorden       moeilijke woorden en woordvariatie"
-    echo "  6) taalmodel     nauwkeuriger taalmodel kiezen of installeren"
+    for i in "${!OPDRACHTEN[@]}"; do
+        naam="${OPDRACHTEN[$i]%%|*}"
+        uitleg="${OPDRACHTEN[$i]#*|}"
+        printf "  %d) %-13s %s\n" "$((i + 1))" "$naam" "$uitleg"
+    done
     echo
-    read -r -p "Kies [1-6]: " keuze
-    case "$keuze" in
-        1|2|3|4|5|6) opdracht="${OPDRACHTEN[$((keuze - 1))]}" ;;
-        *) echo "Onbekende keuze: $keuze"; exit 1 ;;
-    esac
+    read -r -p "Kies [1-${#OPDRACHTEN[@]}]: " keuze
+    if ! [ "$keuze" -ge 1 ] 2>/dev/null || [ "$keuze" -gt "${#OPDRACHTEN[@]}" ]; then
+        echo "Onbekende keuze: $keuze"
+        exit 1
+    fi
+    opdracht="${OPDRACHTEN[$((keuze - 1))]%%|*}"
 fi
 
 # --- taalmodel: geen manuscriptmap nodig ------------------------------------
@@ -68,25 +75,10 @@ if [ "$opdracht" = "taalmodel" ]; then
         model="$map"
     fi
 
-    uv run --group nl python nl/analyseer.py taalmodel "$model" || exit 1
-
-    # Ophalen als het er nog niet is. `python -m spacy download` werkt hier niet:
-    # dat roept pip aan, en een door uv beheerde omgeving heeft geen pip.
-    wheel=$(uv run --group nl python -c "
-import sys; sys.path.insert(0, 'nl')
-from leesbaarheid import taal
-naam = taal._volledige_naam('$model')
-print('' if taal.is_geinstalleerd(naam) else taal.MODELLEN[taal.MODEL_PER_NAAM[naam]].wheel)
-")
-    if [ -n "$wheel" ]; then
-        echo
-        read -r -p "Het model is nog niet geïnstalleerd. Nu ophalen? [J/n]: " ja
-        case "${ja:-J}" in
-            [JjYy]*) uv pip install "$wheel" ;;
-            *) echo "Overgeslagen. Later zelf: uv pip install $wheel" ;;
-        esac
-    fi
-    exit 0
+    # --installeer haalt het model op als het er nog niet is. Welke groep
+    # daarvoor nodig is weet analyseer.py; dit script hoeft dat niet te weten.
+    uv run --group nl python nl/analyseer.py taalmodel "$model" --installeer
+    exit $?
 fi
 
 if [ -z "$map" ]; then

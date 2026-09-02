@@ -22,6 +22,12 @@ nl = [
     "wordfreq==3.1.1",
     "nl-core-news-sm",
 ]
+# De grotere taalmodellen, elk in een eigen groep. Ze staan hier en niet los
+# erbuiten omdat `uv sync` de omgeving gelijkmaakt aan uv.lock: een model dat
+# met `uv pip install` binnenkwam en dus niet in de lock staat, werd bij de
+# volgende start weer weggegooid. Zo staan ze wél in de lock en blijven ze.
+nl-md = ["nl-core-news-md"]
+nl-lg = ["nl-core-news-lg"]
 dev = [
     "pytest>=8.0",
 ]
@@ -34,6 +40,9 @@ pythonpath = ["nl", "."]
 package = false
 
 [tool.uv.sources]
-# Het spaCy-model komt niet van PyPI. De wheel-URL is reproduceerbaar en werkt
-# binnen uv; `python -m spacy download` doet dat niet.
+# De spaCy-modellen komen niet van PyPI. De wheel-URL is reproduceerbaar en
+# werkt binnen uv; `python -m spacy download` doet dat niet. Alle drie de
+# versies moeten met de spaCy-minor meebewegen en dus gelijk blijven.
 nl-core-news-sm = { url = "https://github.com/explosion/spacy-models/releases/download/nl_core_news_sm-3.8.0/nl_core_news_sm-3.8.0-py3-none-any.whl" }
+nl-core-news-md = { url = "https://github.com/explosion/spacy-models/releases/download/nl_core_news_md-3.8.0/nl_core_news_md-3.8.0-py3-none-any.whl" }
+nl-core-news-lg = { url = "https://github.com/explosion/spacy-models/releases/download/nl_core_news_lg-3.8.0/nl_core_news_lg-3.8.0-py3-none-any.whl" }

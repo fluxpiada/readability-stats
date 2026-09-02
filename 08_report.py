@@ -13,22 +13,17 @@ import json
 import sys
 from datetime import date, datetime
 from pathlib import Path
+from typing import NamedTuple
 
 import pandas as pd
 from read_stats import (
-    clean_tokens,
-    ensure_nltk_data,
+    chapter_frame,
     header,
     legend,
-    load_chapters,
-    mtld,
     plot_pacing_curve,
     range_note,
-    readability_metrics,
     register_unicode_font,
     resolve_folder,
-    tightening_score,
-    ttr,
 )
 
 REPORTS_DIR = "reports"
@@ -107,45 +102,6 @@ CAVEAT = (
 # Data
 # -----------------------------------------------
 
-def build_dataframe(folder: str) -> tuple[pd.DataFrame, bool]:
-    """Return (per-chapter stats, whether lexical diversity could be measured)."""
-    lexical = ensure_nltk_data()
-    rows = []
-
-    for i, (filename, text) in enumerate(load_chapters(folder)):
-        m = readability_metrics(text)
-        if not m:
-            continue
-
-        row = {
-            "chapter":   filename,
-            "order":     i,
-            "words":     m["words"],
-            "sentences": m["sentences"],
-            "avg_sent":  m["words"] / m["sentences"],
-            "flesch":    m["flesch"],
-            "fk":        m["fk_grade"],
-            "fog":       m["gunning_fog"],
-        }
-
-        if lexical:
-            tokens = clean_tokens(text)
-            row["ttr"]  = ttr(tokens)
-            row["mtld"] = mtld(tokens)
-
-        rows.append(row)
-
-    df = pd.DataFrame(rows)
-    if df.empty:
-        return df, lexical
-
-    df["delta_flesch"] = df["flesch"].diff()
-    df["delta_fog"]    = df["fog"].diff()
-    df["delta_words"]  = df["words"].diff()
-    df["tightening"]   = tightening_score(df)
-    return df, lexical
-
-
 def fmt(value, decimals: int = 1) -> str:
     """Format a number for a table cell; blank for missing values."""
     if value is None or (isinstance(value, float) and pd.isna(value)):
@@ -155,67 +111,116 @@ def fmt(value, decimals: int = 1) -> str:
     return f"{value:,.{decimals}f}"
 
 
+class Column(NamedTuple):
+    """One column of a table: where the number comes from and how it reads."""
+
+    field: str            # DataFrame column
+    metric: str | None    # key into read_stats.METRICS, for header and legend
+    label: str | None = None   # overrides the metric's own label
+    decimals: int = 1
+    lexical: bool = False      # only shown when lexical diversity was measured
+    text: bool = False         # printed as-is rather than formatted as a number
+
+    @property
+    def heading(self) -> str:
+        if self.metric is None:
+            return self.label or self.field.title()
+        return header(self.metric, self.label)
+
+
+class Section(NamedTuple):
+    """One table in the report, with the prose that introduces it."""
+
+    key: str
+    title: str
+    blurb: str
+    columns: list[Column]
+    sort_by: str | None = None
+    descending: bool = False
+
+
+CHAPTER = Column("chapter", None, "Chapter", text=True)
+
+# Every table in the report. Headers, rows, legend and section prose all read
+# from here, so a column cannot appear without the legend that explains it.
+# Headers stay short enough not to wrap in the PDF's narrow numeric columns,
+# and may use the direction arrows: write_pdf registers DejaVuSans, so glyphs
+# outside WinAnsi survive.
+SECTIONS = [
+    Section(
+        "per_chapter", "Every chapter",
+        "All metrics in story order. Skim the Flesch column for outliers. "
+        "Sents is the sentence count; Avg len is the average words per sentence.",
+        [CHAPTER,
+         Column("words", None, "Words", decimals=0),
+         Column("sentences", None, "Sents", decimals=0),
+         Column("avg_sent", "avg_sent"),
+         Column("flesch", "flesch"),
+         Column("fk", "fk"),
+         Column("fog", "fog"),
+         Column("ttr", "ttr", decimals=3, lexical=True),
+         Column("mtld", "mtld", lexical=True)],
+    ),
+    Section(
+        "hardest", "Hardest to easiest",
+        "The same chapters ranked by Flesch Reading Ease, lowest (densest) first.",
+        [CHAPTER,
+         Column("flesch", "flesch"),
+         Column("fk", "fk"),
+         Column("fog", "fog"),
+         Column("words", None, "Words", decimals=0)],
+        sort_by="flesch",
+    ),
+    Section(
+        "tightening", "Tightening priority",
+        "Chapters that are wordy, dense and hard to read at the same time. A revision triage list.",
+        [CHAPTER,
+         Column("tightening", "tightening"),
+         Column("flesch", "flesch"),
+         Column("fog", "fog"),
+         Column("words", None, "Words", decimals=0)],
+        sort_by="tightening", descending=True,
+    ),
+    Section(
+        "deltas", "Chapter-to-chapter change",
+        "How sharply each chapter differs from the one before it. "
+        "Big jumps change the reading gear.",
+        [CHAPTER,
+         Column("delta_flesch", "delta", "Flesch change"),
+         Column("delta_fog", "delta", "Fog change"),
+         Column("delta_words", "delta", "Words change", decimals=0)],
+    ),
+]
+
+
+def section_columns(section: Section, lexical: bool) -> list[Column]:
+    """The columns actually shown, dropping lexical ones when unmeasured."""
+    return [c for c in section.columns if lexical or not c.lexical]
+
+
 def table_data(df: pd.DataFrame, lexical: bool) -> dict[str, tuple[list[str], list[list[str]]]]:
     """Build every table once, as (headers, rows) of preformatted strings."""
-    # Headers are shared by both writers and stay short enough not to wrap in
-    # the PDF's narrow numeric columns. They may now use the direction arrows:
-    # write_pdf registers DejaVuSans, so glyphs outside WinAnsi survive.
-    per_chapter_headers = ["Chapter", "Words", "Sents",
-                           header("avg_sent"), header("flesch"),
-                           header("fk"), header("fog")]
-    if lexical:
-        per_chapter_headers += [header("ttr"), header("mtld")]
-
-    per_chapter = []
-    for _, r in df.iterrows():
-        row = [r["chapter"], fmt(r["words"], 0), fmt(r["sentences"], 0),
-               fmt(r["avg_sent"]), fmt(r["flesch"]), fmt(r["fk"]), fmt(r["fog"])]
-        if lexical:
-            row += [fmt(r["ttr"], 3), fmt(r["mtld"], 1)]
-        per_chapter.append(row)
-
-    hardest = [
-        [r["chapter"], fmt(r["flesch"]), fmt(r["fk"]), fmt(r["fog"]), fmt(r["words"], 0)]
-        for _, r in df.sort_values("flesch").iterrows()
-    ]
-
-    tightening = [
-        [r["chapter"], fmt(r["tightening"]), fmt(r["flesch"]), fmt(r["fog"]), fmt(r["words"], 0)]
-        for _, r in df.sort_values("tightening", ascending=False).iterrows()
-    ]
-
-    deltas = [
-        [r["chapter"], fmt(r["delta_flesch"]), fmt(r["delta_fog"]), fmt(r["delta_words"], 0)]
-        for _, r in df.iterrows()
-    ]
-
-    return {
-        "per_chapter": (per_chapter_headers, per_chapter),
-        "hardest":     (["Chapter", header("flesch"), header("fk"),
-                         header("fog"), "Words"], hardest),
-        "tightening":  (["Chapter", header("tightening"), header("flesch"),
-                         header("fog"), "Words"], tightening),
-        "deltas":      (["Chapter", header("delta", "Flesch change"),
-                         header("delta", "Fog change"),
-                         header("delta", "Words change")], deltas),
-    }
-
-
-# Which metric columns each table shows, so the legend under it matches.
-TABLE_KEYS = {
-    "per_chapter": ["avg_sent", "flesch", "fk", "fog", "ttr", "mtld"],
-    "hardest":     ["flesch", "fk", "fog"],
-    "tightening":  ["tightening", "flesch", "fog"],
-    "deltas":      ["delta"],
-}
+    tables = {}
+    for section in SECTIONS:
+        columns = section_columns(section, lexical)
+        ordered = (df.sort_values(section.sort_by, ascending=not section.descending)
+                   if section.sort_by else df)
+        rows = [
+            [getattr(r, c.field) if c.text else fmt(getattr(r, c.field), c.decimals)
+             for c in columns]
+            for r in ordered.itertuples()
+        ]
+        tables[section.key] = ([c.heading for c in columns], rows)
+    return tables
 
 
 def table_legend(key: str, lexical: bool = True) -> str:
     """The legend line under the table with this key."""
-    keys = TABLE_KEYS.get(key, [])
-    if not lexical:
-        keys = [k for k in keys if k not in ("ttr", "mtld")]
-    return legend(keys)
+    section = next((s for s in SECTIONS if s.key == key), None)
+    if section is None:
+        return ""
+    keys = [c.metric for c in section_columns(section, lexical) if c.metric]
+    return legend(dict.fromkeys(keys))
 
 
 def summary_lines(df: pd.DataFrame, folder: str) -> list[tuple[str, str]]:
@@ -233,23 +238,6 @@ def summary_lines(df: pd.DataFrame, folder: str) -> list[tuple[str, str]]:
         ("Hardest chapter",   str(df.loc[df['flesch'].idxmin(), 'chapter'])),
         ("Easiest chapter",   str(df.loc[df['flesch'].idxmax(), 'chapter'])),
     ]
-
-
-# -----------------------------------------------
-# Section text — shared by both writers
-# -----------------------------------------------
-
-SECTIONS = [
-    ("per_chapter", "Every chapter",
-     "All metrics in story order. Skim the Flesch column for outliers. "
-     "Sents is the sentence count; Avg len is the average words per sentence."),
-    ("hardest", "Hardest to easiest",
-     "The same chapters ranked by Flesch Reading Ease, lowest (densest) first."),
-    ("tightening", "Tightening priority",
-     "Chapters that are wordy, dense and hard to read at the same time. A revision triage list."),
-    ("deltas", "Chapter-to-chapter change",
-     "How sharply each chapter differs from the one before it. Big jumps change the reading gear."),
-]
 
 
 # -----------------------------------------------
@@ -275,10 +263,11 @@ def write_markdown(df, lexical, tables, folder, out_dir, chart_name) -> Path:
         parts += ["> NLTK's punkt/stopwords data could not be downloaded, so the TTR and MTLD "
                   "columns are omitted from this report. Everything else is unaffected.", ""]
 
-    for key, title, blurb in SECTIONS:
-        headers, rows = tables[key]
-        parts += [f"## {title}", "", blurb, "", md_table(headers, rows), ""]
-        note = table_legend(key, lexical)
+    for section in SECTIONS:
+        headers, rows = tables[section.key]
+        parts += [f"## {section.title}", "", section.blurb, "",
+                  md_table(headers, rows), ""]
+        note = table_legend(section.key, lexical)
         if note:
             parts += ["*" + note.replace("\n", "*  \n*") + "*", ""]
 
@@ -386,14 +375,14 @@ def write_pdf(df, lexical, tables, folder, out_dir, chart_path) -> Path:
         ]))
         return t
 
-    for key, title, blurb in SECTIONS:
-        headers, rows = tables[key]
+    for section in SECTIONS:
+        headers, rows = tables[section.key]
         block = [
-            Paragraph(title, h2),
-            Paragraph(blurb, blurb_style),
+            Paragraph(section.title, h2),
+            Paragraph(section.blurb, blurb_style),
             build_table(headers, rows),
         ]
-        note = table_legend(key, lexical)
+        note = table_legend(section.key, lexical)
         if note:
             block.append(Paragraph(note.replace("\n", "<br/>"), legend_style))
         story.append(KeepTogether(block))
@@ -513,7 +502,7 @@ def main(folder: str, output_dir: str | None = None) -> None:
     out_dir = new_snapshot_dir(root) if snapshot else Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    df, lexical = build_dataframe(folder)
+    df, lexical = chapter_frame(folder, lexical=True)
     if df.empty:
         print(f"No .md or .docx files with readable text found in: {folder}")
         if snapshot:

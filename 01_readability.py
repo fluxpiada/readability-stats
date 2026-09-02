@@ -3,20 +3,7 @@
 Usage: python 01_readability.py [folder]
 """
 
-from read_stats import METRICS, legend, load_chapters, readability_metrics, resolve_folder
-
-# Flesch's own interpretation bands, so a bare number gets a word next to it.
-BANDS = [
-    (90, "very easy"), (80, "easy"), (70, "fairly easy"), (60, "standard"),
-    (50, "fairly difficult"), (30, "difficult"), (0, "very hard going"),
-]
-
-
-def band(score: float) -> str:
-    for floor, name in BANDS:
-        if score >= floor:
-            return name
-    return BANDS[-1][1]
+from read_stats import band, header, legend, load_chapters, readability_metrics, resolve_folder
 
 
 def main(folder: str) -> None:
@@ -42,9 +29,7 @@ def main(folder: str) -> None:
 
     print("\n=== Summary (hardest → easiest by Flesch) ===\n")
     stats_sorted = sorted(stats, key=lambda x: x[1]["flesch"])
-    flesch_h = f"Flesch {METRICS['flesch'].symbol}"
-    fk_h = f"FK {METRICS['fk'].symbol}"
-    fog_h = f"Fog {METRICS['fog'].symbol}"
+    flesch_h, fk_h, fog_h = header("flesch"), header("fk"), header("fog")
     print(f"{flesch_h:>9}  {fk_h:>6}  {fog_h:>6}  {'Words':>6}  File")
     print("-" * 70)
     for filename, m in stats_sorted:

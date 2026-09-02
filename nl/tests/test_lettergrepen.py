@@ -9,7 +9,7 @@ fonologische lettergrepen (hoe je het woord uitspreekt), niet op afbreekpunten.
 import pytest
 
 from leesbaarheid.lettergrepen import (
-    PYPHEN_BESCHIKBAAR,
+    _pyphen,
     tel_kernen,
     tel_lettergrepen,
     tel_lettergrepen_zonder_pyphen,
@@ -102,7 +102,7 @@ def test_pyphen_is_geinstalleerd():
     Niet strikt nodig om te draaien, maar wel de bedoelde opstelling: zonder
     pyphen zijn de cijfers meetbaar minder nauwkeurig.
     """
-    assert PYPHEN_BESCHIKBAAR, "pyphen ontbreekt — draai: uv sync --group nl"
+    assert _pyphen() is not None, "pyphen ontbreekt — draai: uv sync --group nl"
 
 
 def test_hoofdletters_en_leestekens_doen_niet_mee():

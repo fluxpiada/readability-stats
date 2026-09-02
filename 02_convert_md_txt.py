@@ -10,7 +10,7 @@ from read_stats import load_chapters, resolve_folder
 OUTPUT_DIR  = "converted_txt"
 
 
-def write_plaintext_chapters(folder: str, output_dir: str = OUTPUT_DIR) -> None:
+def write_plaintext_chapters(folder: str, output_dir: str) -> None:
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 

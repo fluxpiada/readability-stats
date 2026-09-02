@@ -71,10 +71,14 @@ def analyseer_manuscript(map_pad: str | Path, toon_voortgang: bool = True) -> Ma
         return manuscript
 
     # De dialoogconventie is een eigenschap van het manuscript als geheel:
-    # eerst manuscriptbreed vaststellen, dan per hoofdstuk toetsen.
-    manuscript.conventie = mod_dialoog.dominante_conventie(
-        "\n\n".join(h.tekst for h in hoofdstukken)
-    )
+    # eerst manuscriptbreed vaststellen, dan per hoofdstuk toetsen. De tellingen
+    # per hoofdstuk opgeteld geven hetzelfde als één telling over het hele boek,
+    # en schelen een tweede regex-doorloop over de complete tekst.
+    totaal: dict[str, int] = {}
+    for hoofdstuk in hoofdstukken:
+        for naam, aantal in mod_dialoog.tel_conventies(hoofdstuk.tekst).items():
+            totaal[naam] = totaal.get(naam, 0) + aantal
+    manuscript.conventie = mod_dialoog.sterkste_conventie(totaal)
 
     manuscript.taalmodel = huidig_model()
 
@@ -88,13 +92,17 @@ def analyseer_manuscript(map_pad: str | Path, toon_voortgang: bool = True) -> Ma
         if toon_voortgang:
             print(f"  · {hoofdstuk.naam}")
 
-        woordteksten = [t.text for t in woordtokens(doc)]
-        aantal_zinnen = len(zinlijst(doc))
+        # Woorden en zinnen één keer bepalen en doorgeven: is_woord over elk
+        # token is niet gratis, en elke module hieronder had het anders zelf
+        # nog eens gedaan.
+        woordlijst = woordtokens(doc)
+        zinnenlijst = zinlijst(doc)
+        woordteksten = [t.text for t in woordlijst]
 
-        schat = woordenschat.analyseer(doc)
+        schat = woordenschat.analyseer(doc, woordtokens=woordlijst)
         leesbaar = formules.bereken(
             woordteksten,
-            aantal_zinnen,
+            len(zinnenlijst),
             moeilijke_woorden=schat.moeilijke_woorden,
         )
         if leesbaar is None:
@@ -105,11 +113,13 @@ def analyseer_manuscript(map_pad: str | Path, toon_voortgang: bool = True) -> Ma
                 hoofdstuk=hoofdstuk,
                 leesbaarheid=leesbaar,
                 woordenschat=schat,
-                stijl=stijl.analyseer(doc),
+                stijl=stijl.analyseer(
+                    doc, zinnen=zinnenlijst, aantal_woorden=len(woordlijst)
+                ),
                 dialoog=mod_dialoog.analyseer_dialoog(
                     hoofdstuk.tekst, manuscript.conventie
                 ),
-                tempo=mod_dialoog.analyseer_tempo(doc),
+                tempo=mod_dialoog.analyseer_tempo(doc, zinlijst=zinnenlijst),
             )
         )
 

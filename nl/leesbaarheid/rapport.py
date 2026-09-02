@@ -22,7 +22,7 @@ from pathlib import Path
 
 from . import teksten
 from .analyse import Manuscript, naar_dataframe
-from .formules import band
+from .formules import BANDEN, band
 
 # matplotlib schrijft anders naar de home-map van de gebruiker
 _CACHE = (Path(__file__).resolve().parents[2] / ".matplotlib_cache")
@@ -31,19 +31,27 @@ os.environ.setdefault("MPLCONFIGDIR", str(_CACHE))
 
 DEJAVU = "DejaVuSans"
 
+# De kopjes boven de voorbeeldzinnen; markdown en PDF gebruiken dezelfde.
+ETIKETTEN = {
+    "passief": "Lijdende vorm",
+    "tangconstructie": "Tangconstructies",
+    "naamwoordstijl": "Naamwoordstijl",
+    "schrapwoorden": "Schrapwoorden",
+}
+
 
 # ---------------------------------------------------------------
 # Hulpjes
 # ---------------------------------------------------------------
 
 def fmt(waarde, decimalen: int = 1) -> str:
-    """Getal netjes, met een streepje voor wat ontbreekt."""
-    if waarde is None:
-        return "—"
-    try:
-        if waarde != waarde:            # NaN
-            return "—"
-    except TypeError:
+    """
+    Getal netjes, met een streepje voor wat ontbreekt.
+
+    Geen pandas nodig voor de NaN-controle: NaN is het enige getal dat niet aan
+    zichzelf gelijk is.
+    """
+    if waarde is None or (isinstance(waarde, float) and waarde != waarde):
         return "—"
     if isinstance(waarde, int):
         return f"{waarde:,}".replace(",", ".")
@@ -81,9 +89,10 @@ def legenda_voor(sleutel: str) -> str:
     return teksten.legenda(TABELKOLOMMEN.get(sleutel, []))
 
 
-def tabellen(manuscript: Manuscript) -> dict[str, tuple[list[str], list[list[str]]]]:
+def tabellen(manuscript: Manuscript, df=None) -> dict[str, tuple[list[str], list[list[str]]]]:
     """Alle tabellen als kant-en-klare tekst, zodat md en PDF identiek zijn."""
-    df = naar_dataframe(manuscript)
+    if df is None:
+        df = naar_dataframe(manuscript)
     kop = teksten.kop
     uit: dict[str, tuple[list[str], list[list[str]]]] = {}
 
@@ -172,8 +181,9 @@ def tabellen(manuscript: Manuscript) -> dict[str, tuple[list[str], list[list[str
     return uit
 
 
-def samenvatting(manuscript: Manuscript) -> list[tuple[str, str]]:
-    df = naar_dataframe(manuscript)
+def samenvatting(manuscript: Manuscript, df=None) -> list[tuple[str, str]]:
+    if df is None:
+        df = naar_dataframe(manuscript)
     moeilijkste = df.loc[df["flesch_douma"].idxmin()]
     makkelijkste = df.loc[df["flesch_douma"].idxmax()]
 
@@ -203,32 +213,48 @@ def samenvatting(manuscript: Manuscript) -> list[tuple[str, str]]:
 # Grafieken
 # ---------------------------------------------------------------
 
-def _stel_matplotlib_in():
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    return plt
+# Agg is een globale instelling; één keer bij het importeren is genoeg.
+import matplotlib  # noqa: E402
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
+
+# De kleur per band. De grenzen en de omschrijvingen komen uit
+# `formules.BANDEN`, zodat een gewijzigde bandnaam ook in de grafiek meekomt.
+BANDKLEUREN = {
+    "zeer makkelijk": "#e8f5e9",
+    "makkelijk": "#f1f8e9",
+    "vrij makkelijk": "#f9fbe7",
+    "standaard": "#fffde7",
+    "vrij moeilijk": "#fff3e0",
+    "moeilijk": "#fbe9e7",
+    "zeer moeilijk": "#ffebee",
+}
 
 
-def leesbaarheidscurve(manuscript: Manuscript, pad: Path) -> Path:
+def _banden() -> list[tuple[float, float, str, str]]:
+    """(ondergrens, bovengrens, kleur, naam) per interpretatieband."""
+    grenzen = [ondergrens for ondergrens, _, _ in BANDEN]
+    bovengrenzen = [100.0, *grenzen[:-1]]
+    return [
+        (ondergrens, boven, BANDKLEUREN.get(naam, "#eceff1"), naam)
+        for (ondergrens, naam, _), boven in zip(BANDEN, bovengrenzen)
+    ]
+
+
+def leesbaarheidscurve(manuscript: Manuscript, pad: Path, df=None) -> Path:
     """
     Flesch-Douma over de hoofdstukken, met de interpretatiebanden eronder.
 
     Geen enkele streeplijn zoals de Engelse versie ('readable threshold 60'):
     voor fictie bestaat die grens niet. De banden zijn context, geen norm.
     """
-    plt = _stel_matplotlib_in()
-    df = naar_dataframe(manuscript)
+    if df is None:
+        df = naar_dataframe(manuscript)
 
     fig, ax = plt.subplots(figsize=(10, 5))
 
-    banden = [
-        (90, 100, "#e8f5e9", "zeer makkelijk"),
-        (70, 90, "#f1f8e9", "makkelijk"),
-        (60, 70, "#fffde7", "standaard"),
-        (50, 60, "#fff3e0", "vrij moeilijk"),
-        (0, 50, "#fbe9e7", "moeilijk"),
-    ]
+    banden = _banden()
     for onder, boven, kleur, _ in banden:
         ax.axhspan(onder, boven, color=kleur, zorder=0)
 
@@ -259,10 +285,10 @@ def leesbaarheidscurve(manuscript: Manuscript, pad: Path) -> Path:
     return pad
 
 
-def dialoogcurve(manuscript: Manuscript, pad: Path) -> Path:
+def dialoogcurve(manuscript: Manuscript, pad: Path, df=None) -> Path:
     """Dialoogaandeel en zinslengtespreiding naast elkaar."""
-    plt = _stel_matplotlib_in()
-    df = naar_dataframe(manuscript)
+    if df is None:
+        df = naar_dataframe(manuscript)
 
     fig, (boven, onder) = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
 
@@ -291,8 +317,10 @@ def dialoogcurve(manuscript: Manuscript, pad: Path) -> Path:
 # Markdown
 # ---------------------------------------------------------------
 
-def schrijf_markdown(manuscript: Manuscript, map_uit: Path, grafieken: list[str]) -> Path:
-    tab = tabellen(manuscript)
+def schrijf_markdown(manuscript: Manuscript, map_uit: Path, grafieken: list[str],
+                     df=None, tab=None) -> Path:
+    if tab is None:
+        tab = tabellen(manuscript, df)
     regels: list[str] = [
         f"# {teksten.TITEL}",
         "",
@@ -302,7 +330,7 @@ def schrijf_markdown(manuscript: Manuscript, map_uit: Path, grafieken: list[str]
         "",
         "## Samenvatting",
         "",
-        md_tabel(["", ""], [[k, v] for k, v in samenvatting(manuscript)]),
+        md_tabel(["", ""], [[k, v] for k, v in samenvatting(manuscript, df)]),
         "",
         teksten.CAVEAT,
         "",
@@ -323,19 +351,13 @@ def schrijf_markdown(manuscript: Manuscript, map_uit: Path, grafieken: list[str]
                "Voorbeelden uit de tekst zelf. Lees deze voordat u iets met de "
                "percentages doet — of iets een probleem is, bepaalt u.", ""]
 
-    etiketten = {
-        "passief": "Lijdende vorm",
-        "tangconstructie": "Tangconstructies",
-        "naamwoordstijl": "Naamwoordstijl",
-        "schrapwoorden": "Schrapwoorden",
-    }
     for h in manuscript.hoofdstukken:
         gevonden = {k: v for k, v in h.stijl.voorbeelden.items() if v}
         if not gevonden:
             continue
         regels += [f"### {h.hoofdstuk.naam}", ""]
         for soort, vindplaatsen in gevonden.items():
-            regels.append(f"**{etiketten.get(soort, soort)}**")
+            regels.append(f"**{ETIKETTEN.get(soort, soort)}**")
             regels.append("")
             for v in vindplaatsen[:5]:
                 regels.append(f"- {v.zin}  \n  *{v.detail}*")
@@ -361,12 +383,14 @@ def schrijf_markdown(manuscript: Manuscript, map_uit: Path, grafieken: list[str]
             "",
         ]
 
+    model = manuscript.taalmodel or "onbekend"
+
     regels += ["## Voorbehoud", ""]
-    for kop, tekst in teksten.VOORBEHOUD:
+    for kop, tekst in teksten.voorbehoud(model):
         regels += [f"**{kop}.** {tekst}", ""]
 
     regels += ["## Literatuur", ""]
-    for verwijzing, url in teksten.LITERATUUR:
+    for verwijzing, url in teksten.literatuur(model):
         regels.append(f"- {verwijzing} <{url}>")
     regels.append("")
 
@@ -406,7 +430,8 @@ def _registreer_fonts() -> bool:
         return False
 
 
-def schrijf_pdf(manuscript: Manuscript, map_uit: Path, grafieken: list[Path]) -> Path:
+def schrijf_pdf(manuscript: Manuscript, map_uit: Path, grafieken: list[Path],
+                df=None, tab=None) -> Path:
     from reportlab.lib import colors
     from reportlab.lib.enums import TA_LEFT
     from reportlab.lib.pagesizes import A4
@@ -475,7 +500,7 @@ def schrijf_pdf(manuscript: Manuscript, map_uit: Path, grafieken: list[Path]) ->
 
     # Samenvatting
     verhaal.append(Paragraph("Samenvatting", stijl_kop))
-    verhaal.append(tabel(["", ""], samenvatting(manuscript),
+    verhaal.append(tabel(["", ""], samenvatting(manuscript, df),
                          kolombreedtes=[breedte * 0.35, breedte * 0.65]))
     verhaal.append(Spacer(1, 8))
     verhaal.append(Paragraph(teksten.CAVEAT, stijl_klein))
@@ -488,7 +513,8 @@ def schrijf_pdf(manuscript: Manuscript, map_uit: Path, grafieken: list[Path]) ->
         verhaal.append(Image(str(grafiek), width=breedte, height=hoogte_px * schaal))
 
     # Tabelsecties
-    tab = tabellen(manuscript)
+    if tab is None:
+        tab = tabellen(manuscript, df)
     for sleutel, titel, blurb in teksten.SECTIES:
         koppen, rijen = tab[sleutel]
         verhaal.append(PageBreak())
@@ -502,12 +528,6 @@ def schrijf_pdf(manuscript: Manuscript, map_uit: Path, grafieken: list[Path]) ->
             verhaal.append(Paragraph(uitleg.replace("  \n", "<br/>"), stijl_klein))
 
     # Vindplaatsen
-    etiketten = {
-        "passief": "Lijdende vorm",
-        "tangconstructie": "Tangconstructies",
-        "naamwoordstijl": "Naamwoordstijl",
-        "schrapwoorden": "Schrapwoorden",
-    }
     verhaal.append(PageBreak())
     verhaal.append(Paragraph("Vindplaatsen", stijl_kop))
     verhaal.append(Paragraph(
@@ -520,7 +540,7 @@ def schrijf_pdf(manuscript: Manuscript, map_uit: Path, grafieken: list[Path]) ->
             continue
         blok = [Paragraph(h.hoofdstuk.naam, stijl_subkop)]
         for soort, vindplaatsen in gevonden.items():
-            blok.append(Paragraph(f"<b>{etiketten.get(soort, soort)}</b>", stijl_klein))
+            blok.append(Paragraph(f"<b>{ETIKETTEN.get(soort, soort)}</b>", stijl_klein))
             for v in vindplaatsen[:4]:
                 blok.append(Paragraph(v.zin, stijl_tekst))
                 blok.append(Paragraph(f"<i>{v.detail}</i>", stijl_klein))
@@ -547,20 +567,22 @@ def schrijf_pdf(manuscript: Manuscript, map_uit: Path, grafieken: list[Path]) ->
         ]
         verhaal.append(KeepTogether(blok))
 
+    model = manuscript.taalmodel or "onbekend"
+
     verhaal.append(PageBreak())
     verhaal.append(Paragraph("Voorbehoud", stijl_kop))
-    for kop, tekst in teksten.VOORBEHOUD:
+    for kop, tekst in teksten.voorbehoud(model):
         verhaal.append(Paragraph(f"<b>{kop}.</b> {tekst}", stijl_tekst))
         verhaal.append(Spacer(1, 4))
 
     verhaal.append(Paragraph("Literatuur", stijl_kop))
-    for verwijzing, url in teksten.LITERATUUR:
+    for verwijzing, url in teksten.literatuur(model):
         verhaal.append(Paragraph(f"{verwijzing}<br/><font size=7>{url}</font>", stijl_klein))
         verhaal.append(Spacer(1, 3))
 
     verhaal.append(Spacer(1, 8))
     verhaal.append(Paragraph("Licenties van gebruikte bronnen", stijl_subkop))
-    for wat, licentie in teksten.LICENTIES:
+    for wat, licentie in teksten.licenties(model):
         verhaal.append(Paragraph(f"{wat}: {licentie}", stijl_klein))
 
     doc.build(verhaal)
@@ -583,8 +605,9 @@ def nieuwe_map(wortel: Path) -> Path:
     return map_uit
 
 
-def schrijf_samenvatting_json(manuscript: Manuscript, map_uit: Path) -> Path:
-    df = naar_dataframe(manuscript)
+def schrijf_samenvatting_json(manuscript: Manuscript, map_uit: Path, df=None) -> Path:
+    if df is None:
+        df = naar_dataframe(manuscript)
     gegevens = {
         "gemaakt": datetime.now().isoformat(timespec="seconds"),
         "map": str(manuscript.map_pad),
@@ -673,16 +696,22 @@ def maak_rapport(manuscript: Manuscript, map_uit: Path | None = None,
         map_uit.mkdir(parents=True, exist_ok=True)
         momentopname = False
 
+    # Eén keer opbouwen en doorgeven: de grafieken en beide uitvoervormen
+    # werken op precies dezelfde cijfers, en zo worden die niet zes keer
+    # opnieuw uit de analyse afgeleid.
+    df = naar_dataframe(manuscript)
+    tab = tabellen(manuscript, df)
+
     grafieken = [
-        leesbaarheidscurve(manuscript, map_uit / "leesbaarheid.png"),
-        dialoogcurve(manuscript, map_uit / "dialoog_en_tempo.png"),
+        leesbaarheidscurve(manuscript, map_uit / "leesbaarheid.png", df),
+        dialoogcurve(manuscript, map_uit / "dialoog_en_tempo.png", df),
     ]
 
-    schrijf_markdown(manuscript, map_uit, [g.name for g in grafieken])
-    schrijf_pdf(manuscript, map_uit, grafieken)
+    schrijf_markdown(manuscript, map_uit, [g.name for g in grafieken], df, tab)
+    schrijf_pdf(manuscript, map_uit, grafieken, df, tab)
 
     if momentopname:
-        schrijf_samenvatting_json(manuscript, map_uit)
+        schrijf_samenvatting_json(manuscript, map_uit, df)
         werk_laatste_bij(wortel, map_uit)
         schrijf_index(wortel)
 

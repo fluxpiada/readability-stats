@@ -3,24 +3,31 @@
 Usage: python 04_sentence_length_histo.py [folder]
 """
 
+from pathlib import Path
+
+# read_stats first: importing it sets MPLCONFIGDIR, which matplotlib reads at
+# its own import time, so the order here is load-bearing.
+from read_stats import ensure_nltk_data, load_chapters, resolve_folder
+
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import nltk
-from pathlib import Path
-from read_stats import load_chapters, resolve_folder  # also sets MPLCONFIGDIR
-
-# Download punkt tokenizer if not already present
-nltk.download("punkt", quiet=True)
-nltk.download("punkt_tab", quiet=True)
 
 
 def sentence_lengths(text: str) -> list[int]:
-    sentences = nltk.sent_tokenize(text)
-    return [len(nltk.word_tokenize(s)) for s in sentences]
+    import nltk
+
+    # preserve_line stops word_tokenize running the sentence tokenizer again
+    # over a string that has already been split into one sentence.
+    return [len(nltk.word_tokenize(s, preserve_line=True))
+            for s in nltk.sent_tokenize(text)]
 
 
 def plot_histograms(folder: str) -> None:
+    if not ensure_nltk_data():
+        print("NLTK punkt data unavailable — cannot measure sentence lengths.")
+        return
+
     chapters = load_chapters(folder)
     output_dir = Path("sentence_histograms")
     output_dir.mkdir(exist_ok=True)
