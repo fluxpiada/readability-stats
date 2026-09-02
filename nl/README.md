@@ -1,17 +1,16 @@
 # Nederlandse leesbaarheidsanalyse
 
-Leesbaarheids- en stijlanalyse voor Nederlandse manuscripten, per hoofdstuk.
+Leesbaarheids- en stijlanalyse voor Nederlandse manuscripten, met een analyse per hoofdstuk ter vergelijking.
 Bedoeld voor romans en langere verhalen: hoe zwaar leest elk hoofdstuk, waar
 zitten de lijdende vormen en tangconstructies, hoeveel dialoog staat erin, en
 hoe gevarieerd is het zinsritme.
 
-**Elk cijfer in dit rapport is rekenwerk over uw tekst.** Er komt geen taalmodel
-aan te pas dat een oordeel velt, en er gaat geen letter van uw manuscript het
-internet op — alles wordt op uw eigen computer berekend. Wat u krijgt is een
-telling, geen mening.
+**Dit programmaatje levert statistieken op waarmee je de dynamiek en de complexiteit van je schrijven kan helpen beoordelen.** 
+Er komt geen AI taalmodel aan te pas, en er gaat geen letter van uw manuscript het
+internet op — alles wordt op uw eigen computer berekend. 
 
 Wel wordt uw tekst grammaticaal ontleed, en dat gebeurt met een taalmodel van
-spaCy: het herkent woordsoorten en zinsdelen, zodat de stijlanalyse — lijdende
+[spaCy](https://spacy.io/usage/linguistic-features): het herkent woordsoorten en zinsdelen, zodat de stijlanalyse — lijdende
 vorm, tangconstructies, naamwoordstijl — niet op zoekpatronen hoeft te steunen.
 Het oordeelt niet, het ontleedt. Standaard is dat het kleine model
 (`nl_core_news_sm`), dat goed werkt maar bij ingewikkelde zinnen niet helemaal
